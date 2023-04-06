@@ -1,7 +1,6 @@
 """
 This is our main driver file, responsible for handling user input and displaying current GameState object.
 """
-import pygame
 import pygame as pg
 import chessEngine
 
@@ -44,7 +43,6 @@ def main():
                 location = pg.mouse.get_pos()
                 col = location[0] // SQ_SIZE
                 row = location[1] // SQ_SIZE
-                pieceHighlight = (row, col)
                 if sqSelected == (row, col):
                     sqSelected = ()
                     playerClicks = []
@@ -70,7 +68,7 @@ def main():
             validMoves = gs.getValidMoves()
             moveMade = False
 
-        drawGameState(screen, gs)
+        drawGameState(screen, gs, playerClicks)
         clock.tick(MAX_FPS)
         pg.display.flip()
 
@@ -78,9 +76,10 @@ def main():
 """
 Responsible for all the graphics within the current game state.
 """
-def drawGameState(screen, gs):
+def drawGameState(screen, gs, squaresHighlighted):
     drawBoardSquares(screen)
     # Add in piece highlighting
+    drawSquareHighlights(screen, squaresHighlighted, gs.moveLog)
     drawPieces(screen, gs.board)
 
 
@@ -92,7 +91,13 @@ def drawBoardSquares(screen):
             pg.draw.rect(screen, color, pg.Rect(c * SQ_SIZE, r * SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
 
-
+def drawSquareHighlights(screen, squaresHighlighted, moveLog):
+    for sq in squaresHighlighted:
+        pg.draw.rect(screen, pg.Color("cyan3"), pg.Rect(sq[1] * SQ_SIZE, sq[0] * SQ_SIZE, SQ_SIZE, SQ_SIZE))
+    if len(moveLog) != 0:
+        move = moveLog[-1]
+        pg.draw.rect(screen, pg.Color("lightgreen"), pg.Rect(move.startCol * SQ_SIZE, move.startRow * SQ_SIZE, SQ_SIZE, SQ_SIZE))
+        pg.draw.rect(screen, pg.Color("lightgreen"), pg.Rect(move.endCol * SQ_SIZE, move.endRow * SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
 def drawPieces(screen, board):
     for r in range(DIMENSION):

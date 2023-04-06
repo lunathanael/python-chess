@@ -55,8 +55,47 @@ class GameState:
 
     # Checks are considered
     def getValidMoves(self):
-        return self.getAllPossibleMoves()
+        moves = self.getAllPossibleMoves()
+        for i in range(len(moves)-1, -1, -1):
+            self.initMove(moves[i])
+            if self.inCheck():
+                moves.remove(moves[i])
+            self.undoMove()
+        return moves
 
+    def inCheck(self):
+        if not self.whiteToMove:
+            targetTurn, r, c = "b", self.whiteKingLocation[0], self.whiteKingLocation[1]
+        else:
+            targetTurn, r, c = "w", self.blackKingLocation[0], self.blackKingLocation[1]
+
+        # Check Knight Squares
+        knightMoves = ((1, 2), (2, 1), (-1, 2), (-2, 1), (1, -2), (2, -1), (-1, -2), (-2, -1))  # 4 Directions
+        for m in knightMoves:
+            endRow = r + m[0]
+            endCol = c + m[1]
+            if 0 <= endRow < 8 and 0 <= endCol < 8:
+                endPiece = self.board[endRow][endCol]
+                if endPiece == targetTurn + "N":  # Valid target
+                        return True
+        directions = ((1,1), (1, -1), (-1, 1), (-1, -1))
+        for d in directions:
+            for i in range(1, 8): # Maximum of 7 squares
+                endRow = r + d[0] * i
+                endCol = c + d[1] * i
+                if 0 <= endRow < 8 and 0 <= endCol < 8:
+                    endPiece = self.board[endRow][endCol]
+                    if (endPiece == targetTurn + "p") and (i == 1):  # Valid empty space
+                        if d[0] == 1 and endPiece == "bp":
+                            return False
+                        if d[0] == -1 and endPiece == "wp":
+                            return False
+                    if endPiece[0] == (targetTurn + "Q" or targetTurn + "B"):  # Valid target
+                        return False
+                else:  # Move is off board
+                    break
+
+        return False
 
     def getAllPossibleMoves(self):
         moves = []
