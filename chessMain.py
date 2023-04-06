@@ -3,6 +3,8 @@ This is our main driver file, responsible for handling user input and displaying
 """
 import pygame as pg
 import chessEngine
+import random
+import time
 
 WIDTH = HEIGHT = 512
 DIMENSION = 8
@@ -60,6 +62,7 @@ def main():
                     if not moveMade:
                         playerClicks = [sqSelected]
 
+
             elif e.type == pg.KEYDOWN:
                 if e.key == pg.K_z:
                     gs.undoMove()
@@ -69,8 +72,19 @@ def main():
             validMoves = gs.getValidMoves()
             moveMade = False
 
+        # Random AI
+        if not gs.checkMate and not gs.staleMate and True:
+            validMoves = gs.getValidMoves()
+            if len(validMoves) != 0:
+                gs.initMove(validMoves[random.randrange(0, len(validMoves))])
+        elif gs.checkMate or gs.staleMate:
+            for move in gs.moveLog:
+                print(move.getChessNotation(), end=", ")
+            time.sleep(100)
+
         drawGameState(screen, gs, playerClicks)
         clock.tick(MAX_FPS)
+        time.sleep(0.02)
         pg.display.flip()
 
 
