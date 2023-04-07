@@ -194,10 +194,8 @@ class GameState:
         if len(moves) == 0:  # Either checkmate or stalemate
             if self.inCheck(opp):
                 self.checkMate = True
-                print("Checkmate!")
             else:
                 self.staleMate = True
-                print("Stalemate!")
         else:  # Update if move was undid
             self.staleMate = False
             self.checkMate = False
@@ -243,6 +241,7 @@ class GameState:
                             return True
                         if d[0] == -1 and endPiece == "bp":
                             return True
+                    break
                 else:  # Move is off board
                     break
         # Check Horizontal
