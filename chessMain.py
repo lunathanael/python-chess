@@ -4,10 +4,14 @@ This is our main driver file, responsible for handling user input and displaying
 import pygame as pg
 import chessEngine
 import chessAI as ai
+from multiprocessing import Process, Queue
 
-WIDTH = HEIGHT = 512
+
+BOARD_WIDTH = BOARD_HEIGHT = 512
+MOVE_LOG_PANEL_WIDTH = 250
+MOVE_LOG_PANEL_HEIGHT = BOARD_HEIGHT
 DIMENSION = 8
-SQ_SIZE = HEIGHT // DIMENSION
+SQ_SIZE = BOARD_HEIGHT // DIMENSION
 MAX_FPS = 9999
 IMAGES = {}
 
@@ -25,13 +29,14 @@ The main drive for our code. This will handle user input and updating the graphi
 
 def main():
     pg.init()
-    screen = pg.display.set_mode((WIDTH, HEIGHT))
+    screen = pg.display.set_mode((BOARD_WIDTH + MOVE_LOG_PANEL_WIDTH, BOARD_HEIGHT))
     clock = pg.time.Clock()
     screen.fill(pg.Color("white"))
     gs = chessEngine.GameState()
     validMoves = gs.getValidMoves()
     moveMade = False # Flag variable for when a move is made, to regenerate valid moves.
     animate = False # Flag variable for when we should animate a move
+    moveLogFont = pg.font.SysFont("Arial", 16, False, False)
 
     loadImages()
     running = True
@@ -39,8 +44,12 @@ def main():
     sqSelected = ()
     playerClicks = []
 
-    playerOne = False # If player 1 is human, this will be True
+    playerOne = True # If player 1 is human, this will be True
     playerTwo = False # If player 2 is human, this will be True
+
+    AIThinking = False
+    moveFinderProcess = False
+    moveUndone = False
 
     while running:
         humanTurn = (gs.whiteToMove and playerOne) or (not gs.whiteToMove and playerTwo)
@@ -49,17 +58,17 @@ def main():
                 running = False
             # Mouse handler
             elif e.type == pg.MOUSEBUTTONDOWN:
-                if not gameOver and humanTurn:
+                if not gameOver:
                     location = pg.mouse.get_pos()
                     col = location[0] // SQ_SIZE
                     row = location[1] // SQ_SIZE
-                    if sqSelected == (row, col):
-                        sqSelected = ()
-                        playerClicks = []
+                    if sqSelected == (row, col) or col >= 8:
+                        sqSelected = () # Deselect
+                        playerClicks = [] # Clear player Clicks
                     else:
                         sqSelected = (row, col)
                         playerClicks.append(sqSelected)
-                    if len(playerClicks) == 2:
+                    if len(playerClicks) == 2 and humanTurn:
                         move = chessEngine.makeMove(playerClicks[0], playerClicks[1], gs.board)
                         for i in range(len(validMoves)):
                             if move == validMoves[i]:
@@ -78,6 +87,11 @@ def main():
                     moveMade = True
                     animate = False
                     gameOver = False
+                    if AIThinking:
+                        moveFinderProcess.terminate()
+                        AIThinking = False
+                    moveUndone = True
+
                 if e.key == pg.K_r:
                     gs = chessEngine.GameState()
                     validMoves = gs.getValidMoves()
@@ -85,13 +99,29 @@ def main():
                     playerClicks = []
                     gameOver = False
                     animate, moveMade = False, False
+                    if AIThinking:
+                        moveFinderProcess.terminate()
+                        AIThinking = False
+                    moveUndone = True
 
         # AI move finder Logic
-        if not gameOver and not humanTurn:
-            AImove = ai.findRandomMove(validMoves)
-            gs.initMove(AImove)
-            moveMade = True
-            animate = True
+        if not gameOver and not humanTurn and not moveUndone:
+            if not AIThinking:
+                AIThinking = True
+                print("Thinking")
+                returnQueue = Queue()
+                moveFinderProcess = Process(target=ai.findBestMove, args=(gs, validMoves, returnQueue))
+                moveFinderProcess.start()
+
+            if not moveFinderProcess.is_alive():
+                AIMove = returnQueue.get()
+                AIThinking = False
+                if AIMove == None:
+                    AImove = ai.findRandomMove(validMoves)
+                else:
+                    gs.initMove(AIMove)
+                moveMade = True
+                animate = True
 
         if moveMade:
             if animate:
@@ -105,16 +135,11 @@ def main():
         # for move in gs.moveLog:
         # print(move.getChessNotation(), end=", ")
 
-        drawGameState(screen, gs, playerClicks, validMoves, sqSelected)
+        drawGameState(screen, gs, playerClicks, validMoves, sqSelected, moveLogFont)
 
-        if gs.checkMate:
+        if gs.checkMate or gs.staleMate:
             gameOver = True
-            if gs.whiteToMove:
-                drawText(screen, "Black wins by Checkmate!")
-            else:
-                drawText(screen, "White wins by Checkmate!")
-        elif gs.staleMate:
-            drawText(screen, "StaleMate!")
+            drawEndgameText(screen, "StaleMate!" if gs.staleMate else "Black wins by Checkmate!" if gs.whiteToMove else "White wins by Checkmate!")
 
         clock.tick(MAX_FPS)
         pg.display.flip()
@@ -123,10 +148,11 @@ def main():
 """
 Responsible for all the graphics within the current game state.
 """
-def drawGameState(screen, gs, squaresHighlighted, validMoves, sqSelected):
+def drawGameState(screen, gs, squaresHighlighted, validMoves, sqSelected, moveLogFont):
     drawBoardSquares(screen)
     highlightSquares(screen, gs, validMoves, sqSelected)
     drawPieces(screen, gs.board)
+    drawMoveLog(screen, gs, moveLogFont)
 
 
 def drawBoardSquares(screen):
@@ -164,6 +190,30 @@ def drawPieces(screen, board):
             if piece != "--":
                 screen.blit(IMAGES[piece], pg.Rect(c * SQ_SIZE, r * SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
+# Draws the Move Log
+def drawMoveLog(screen, gs, font):
+    moveLogRect = pg.Rect(BOARD_WIDTH, 0, MOVE_LOG_PANEL_WIDTH, MOVE_LOG_PANEL_HEIGHT)
+    pg.draw.rect(screen, pg.Color("black"), moveLogRect)
+    moveLog = gs.moveLog
+    moveTexts = []
+    for i in range(0, len(moveLog), 2):
+        moveString = str(i//2 + 1) + ". " + str(moveLog[i]) + " "
+        if i+1 < len(moveLog):
+            moveString += str(moveLog[i+1]) + " "
+        moveTexts.append(moveString)
+    padding = 5
+    movesPerRow = 3
+    lineSpacing = 2
+    textY = padding
+    for i in range(0, len(moveTexts), movesPerRow):
+        text = ""
+        for j in range(movesPerRow):
+            if i + j < len(moveTexts):
+                text += moveTexts[i+j]
+        textObject = font.render(text, True, pg.Color("white"))
+        textLocation = moveLogRect.move(padding, textY)
+        screen.blit(textObject, textLocation)
+        textY += textObject.get_height() + lineSpacing
 def animateMove(move, screen, board, clock):
     global colors
     dR = move.endRow - move.startRow
@@ -182,16 +232,19 @@ def animateMove(move, screen, board, clock):
         pg.draw.rect(screen, color, endSquare)
         # Draw captured piece into rectangle
         if move.pieceCaptured != "--":
+            if move.isEnpassantMove:
+                enpassantRow = move.endRow + 1 if move.pieceCaptured[0] == "b" else move.endRow - 1
+                endSquare = pg.Rect(move.endCol*SQ_SIZE, enpassantRow*SQ_SIZE, SQ_SIZE, SQ_SIZE)
             screen.blit(IMAGES[move.pieceCaptured], endSquare)
         # Draw moving piece
         screen.blit(IMAGES[move.pieceMoved], pg.Rect(c*SQ_SIZE, r*SQ_SIZE, SQ_SIZE, SQ_SIZE))
         pg.display.flip()
         clock.tick(144) # Framerate for animation
 
-def drawText(screen, text):
+def drawEndgameText(screen, text):
     font = pg.font.SysFont("Helvitca", 32, True, False)
     textObject = font.render(text, 0, pg.Color("Gray"))
-    textLocation = pg.Rect(0, 0, WIDTH, HEIGHT).move(WIDTH/2 - textObject.get_width()/2, HEIGHT/2 - textObject.get_height()/2)
+    textLocation = pg.Rect(0, 0, BOARD_WIDTH, BOARD_HEIGHT).move(BOARD_WIDTH / 2 - textObject.get_width() / 2, BOARD_HEIGHT / 2 - textObject.get_height() / 2)
     screen.blit(textObject, textLocation)
     textObject = font.render(text, 0, pg.Color("Black"))
     screen.blit(textObject, textLocation.move(2, 2))
