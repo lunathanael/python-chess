@@ -117,7 +117,11 @@ def main():
                         print("White", end=" ") if gs.whiteToMove else print("Black", end=" ")
                         print("Thinking")
                         returnQueue = Queue()
-                        moveFinderProcess = Process(target=ai.findBestMove, args=(gs, validMoves, gs.whiteToMove, returnQueue))
+                        if gs.whiteToMove:
+                            moveFinderProcess = Process(target=ai.findBestMove, args=(gs, validMoves, gs.whiteToMove, returnQueue))
+                        else:
+                            moveFinderProcess = Process(target=ai.findBestMove,
+                                                        args=(gs, validMoves, gs.whiteToMove, returnQueue))
                         moveFinderProcess.start()
 
                     if not moveFinderProcess.is_alive():
@@ -134,7 +138,12 @@ def main():
                 print("White", end=" ") if gs.whiteToMove else print("Black", end=" ")
                 print("Thinking")
                 returnQueue = Queue()
-                moveFinderProcess = Process(target=ai.findBestMove, args=(gs, validMoves, gs.whiteToMove, returnQueue))
+                if gs.whiteToMove:
+                    moveFinderProcess = Process(target=ai.findBestMove,
+                                                args=(gs, validMoves, gs.whiteToMove, returnQueue))
+                else:
+                    moveFinderProcess = Process(target=ai.findWorstMove,
+                                                args=(gs, validMoves, gs.whiteToMove, returnQueue))
                 moveFinderProcess.start()
 
             if not moveFinderProcess.is_alive():

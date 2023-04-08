@@ -26,6 +26,7 @@ class GameState:
         self.checkMate = False
         self.staleMate = False
         self.draw = False
+        self.check = False
         self.enpassantPossible = ()  # Coordinates for the square at which enpassant is possible
         self.enpassantPossibleLog = [self.enpassantPossible]
         self.currentCastlingRights = CastleRights(True, True, True, True)
@@ -98,6 +99,8 @@ class GameState:
 
     def undoMove(self):
         if len(self.moveLog) != 0:
+            if self.check:
+                self.check = not self.check
             if not self.trying:
                 hashOf = hash(getFen(self.board, self.enpassantPossible, self.whiteToMove, self.currentCastlingRights))
                 indexx = ind(self.boardLog, hashOf)
@@ -198,8 +201,10 @@ class GameState:
 
         if len(moves) == 0:
             if self.inCheck(opp):
+                self.check = True
                 self.checkMate = True
             else:
+                self.check = False
                 self.staleMate = True
 
         else:
@@ -411,8 +416,11 @@ class GameState:
     # Get all valid castle moves for the king at (r, c) and add to list of moves
     def getCastleMoves(self, r, c, moves, allyTurn):
         if self.inCheck(allyTurn):
+            self.check = True
             return
-        elif not ((r == 0 and c == 4) or (r == 7 and c == 4)):
+        else:
+            self.check = False
+        if not ((r == 0 and c == 4) or (r == 7 and c == 4)):
             return
         if (self.whiteToMove and self.currentCastlingRights.wks) or (
                 not self.whiteToMove and self.currentCastlingRights.bks):

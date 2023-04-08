@@ -6,9 +6,9 @@ pieceScore = {"K": 20000, "Q": 1160, "R": 670, "N": 450, "B": 480, "p": centipaw
 CHECKMATE = 100000
 STALEMATE = 0
 DRAW = 0
-DEPTH = 3 # Halfmoves, recommened to be even
-CAPTURES = 4 # Halfmoves, recommened to be Depth + Captures is even
-MAX_DEPTH = DEPTH + CAPTURES
+DEPTH = 2 # Halfmoves, recommened to be even
+ATTACK = 4 # Halfmoves, recommened to be Depth + attacks is even, captures or checks
+MAX_DEPTH = DEPTH + ATTACK
 
 PawnPhase = 0
 KnightPhase = 1
@@ -166,6 +166,17 @@ def findBestMove(gs, validMoves, turn, returnQueue):
     printEval(nextMove, bestEval, turn)
     returnQueue.put(nextMove)
 
+def findWorstMove(gs, validMoves, turn, returnQueue):
+    global nextMove, counter, favLine, capture, bestEval
+    counter = 0
+    nextMove = None
+    random.shuffle(validMoves)
+    bestEval = findWorstMoveNegaMaxAlphaBeta(gs, validMoves, DEPTH, -CHECKMATE, CHECKMATE, 1 if gs.whiteToMove else -1)
+    # findGreedyMove(gs, validMoves, DEPTH, gs.whiteToMove)
+    gs.initMove(nextMove, False, True)
+    printEval(nextMove, bestEval, turn)
+    returnQueue.put(nextMove)
+
 
 def findRandomMove(validMoves):  # Find Random Move
     if len(validMoves) != 0:
@@ -275,12 +286,13 @@ def findMoveNegaMax(gs, validMoves, depth, turnMultiplier):
     return maxScore
 
 
-def findMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier, capture=False): # Generating nonvalid moves
+def findMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier, attack=False): # Generating nonvalid moves
     global nextMove, counter, favLine, bestEval
     # Move Ordering - Implement later
     maxScore = -CHECKMATE - 1
+    counter += 1
 
-    if (depth <= 0 and not capture) or (depth < -CAPTURES):
+    if (depth <= 0 and not attack) or (depth < -ATTACK):
 
         """        hashOf = hash(getFen(gs.board, gs.enpassantPossible, gs.whiteToMove, gs.currentCastlingRights))
         indexx = ind(memo, hashOf)
@@ -295,24 +307,65 @@ def findMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier,
             return returnScore"""
         return turnMultiplier * scoreBoard(gs)
     else:
-        capture = False
+        attack = False
 
     for move in validMoves:
         gs.initMove(move, True)
-        counter += 1
         nextMoves = gs.getValidMoves()
-        score = -findMoveNegaMaxAlphaBeta(gs, nextMoves, depth - 1, -beta, -alpha, -turnMultiplier, move.isCapture)
+        attack = (move.isCapture or gs.check)
+        score = -findMoveNegaMaxAlphaBeta(gs, nextMoves, depth - 1, -beta, -alpha, -turnMultiplier, attack)
         if score > maxScore:
             maxScore = score
             if depth == DEPTH:
                 nextMove = move
             if depth > 0:
                 bestLine[DEPTH - depth] = move
-
         gs.undoMove()
         alpha = max(maxScore, alpha)
 
         if alpha >= beta:
+            break
+    return maxScore
+
+
+def findWorstMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier, attack=False): # Generating nonvalid moves
+    global nextMove, counter, favLine, bestEval
+    # Move Ordering - Implement later
+    maxScore = CHECKMATE + 1
+    counter += 1
+
+    if (depth <= 0 and not attack) or (depth < -ATTACK):
+
+        """        hashOf = hash(getFen(gs.board, gs.enpassantPossible, gs.whiteToMove, gs.currentCastlingRights))
+        indexx = ind(memo, hashOf)
+         # Hashing does not change speed :(
+        if indexx == None:
+            returnScore = turnMultiplier * scoreBoard(gs)
+            memo = np.vstack((memo, [hashOf, returnScore]))
+            return returnScore
+        else:
+            returnScore = memo[list(indexx)[0], 1]
+            hashTable += 1
+            return returnScore"""
+        return turnMultiplier * scoreBoard(gs)
+    else:
+        attack = False
+
+    for move in validMoves:
+        gs.initMove(move, True)
+        nextMoves = gs.getValidMoves()
+        attack = (move.isCapture or gs.check)
+        score = -findMoveNegaMaxAlphaBeta(gs, nextMoves, depth - 1, -beta, -alpha, -turnMultiplier, attack)
+        if score < maxScore:
+            maxScore = score
+            if depth == DEPTH:
+                nextMove = move
+            if depth > 0:
+                bestLine[DEPTH - depth] = move
+        gs.undoMove()
+        alpha = min(maxScore, alpha)
+
+        if alpha <= beta:
             break
     return maxScore
 
