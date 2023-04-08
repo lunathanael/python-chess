@@ -1,12 +1,13 @@
 import random
-
+import numpy as np
 
 centipawnValue = 160
 pieceScore = {"K": 20000, "Q": 1160, "R": 670, "N": 450, "B": 480, "p": centipawnValue}
 CHECKMATE = 100000
 STALEMATE = 0
-DEPTH = 4
-CAPTURES = 2
+DRAW = 0
+DEPTH = 3 # Halfmoves, recommened to be even
+CAPTURES = 4 # Halfmoves, recommened to be Depth + Captures is even
 MAX_DEPTH = DEPTH + CAPTURES
 
 PawnPhase = 0
@@ -17,8 +18,11 @@ QueenPhase = 4
 TotalPhase = PawnPhase * 16 + KnightPhase * 4 + BishopPhase * 4 + RookPhase * 4 + QueenPhase * 2
 phase = TotalPhase
 bestLine = [None] * DEPTH
-bestEval = 0
 capture = False
+memo = np.zeros((1,2))
+hashTable = 0
+bishopCombo = [False, False]
+bestEval = 0
 
 knightScores = [
     [-50, -40, -30, -30, -30, -30, -40, -50],
@@ -28,7 +32,7 @@ knightScores = [
     [-30, 5, 15, 20, 20, 15, 5, -30],
     [-30, 0, 10, 15, 15, 10, 0, -30],
     [-40, -20, 0, 0, 0, 0, -20, -40],
-    [-50, -40, -30, -30, -30, -30, -40, -50]]
+    [-50, -50, -30, -30, -30, -30, -50, -50]]
 
 egKnightScores = [
     [-58, -38, -13, -28, -31, -27, -63, -99],
@@ -68,8 +72,8 @@ rookScores = [
     [-5, 0, 0, 0, 0, 0, 0, -5],
     [-5, 0, 0, 0, 0, 0, 0, -5],
     [-5, 0, 0, 0, 0, 0, 0, -5],
-    [-5, 0, 0, 0, 0, 0, 0, -5],
-    [0, 0, 5, 5, 5, 5, 0, 0]]
+    [-5, 2, 6, 6, 6, 6, 2, -5],
+    [1, 0, 5, 5, 5, 5, 0, 1]]
 
 egRookScores = [
     [13, 10, 18, 15, 12, 12, 8, 5],
@@ -86,10 +90,10 @@ pawnScores = [
     [0, 0, 0, 0, 0, 0, 0, 0],
     [50, 50, 50, 50, 50, 50, 50, 50],
     [10, 10, 20, 30, 30, 20, 10, 10],
-    [5, 5, 10, 25, 25, 10, 5, 5],
-    [0, 0, 10, 30, 30, 10, 0, 0],
-    [5, 7, 10, 10, 10, 10, 7, 5],
-    [5, 10, 10, -20, -20, 10, 10, 5],
+    [5, 5, 12, 25, 25, 12, 5, 5],
+    [0, 4, 32, 34, 35, 32, 4, 0],
+    [5, 17, 20, 20, 20, 20, 17, 5],
+    [-5, -6, 0, -40, -40, 0, -6, -5],
     [0, 0, 0, 0, 0, 0, 0, 0]]
 
 egPawnScores = [
@@ -110,8 +114,8 @@ bishopScores = [
     [-10, 5, 5, 10, 10, 5, 5, -10],
     [-10, 0, 10, 10, 10, 10, 0, -10],
     [-10, 10, 10, 10, 10, 10, 10, -10],
-    [-10, 5, 0, 0, 0, 0, 5, -10],
-    [-20, -10, -10, -10, -10, -10, -10, -20]]
+    [-10, 11, 0, 0, 0, 0, 11, -10],
+    [-10, -10, -20, -10, -10, -20, -10, -10]]
 
 egBishopScores = [
     [-14, -21, -11, -8, -7, -9, -17, -24],
@@ -132,7 +136,7 @@ queenScores = [
     [0, 0, 5, 5, 5, 5, 0, -5],
     [-10, 5, 5, 5, 5, 5, 0, -10],
     [-10, 0, 5, 0, 0, 0, 0, -10],
-    [-20, -10, -10, -5, -5, -10, -10, -20]]
+    [-20, -10, -5, -5, -5, -10, -10, -20]]
 
 egQueenScores = [
     [-9, 22, 22, 27, 27, 19, 10, 20],
@@ -152,12 +156,13 @@ egPiecePositionScores = {"N": egKnightScores, "K": egKingScores, "B": egBishopSc
 
 
 def findBestMove(gs, validMoves, turn, returnQueue):
-    global nextMove, counter
+    global nextMove, counter, favLine, capture, bestEval
     counter = 0
     nextMove = None
     random.shuffle(validMoves)
-    findMoveNegaMaxAlphaBeta(gs, validMoves, DEPTH, -CHECKMATE, CHECKMATE, 1 if gs.whiteToMove else -1)
+    bestEval = findMoveNegaMaxAlphaBeta(gs, validMoves, DEPTH, -CHECKMATE, CHECKMATE, 1 if gs.whiteToMove else -1)
     # findGreedyMove(gs, validMoves, DEPTH, gs.whiteToMove)
+    gs.initMove(nextMove, False, True)
     printEval(nextMove, bestEval, turn)
     returnQueue.put(nextMove)
 
@@ -182,6 +187,8 @@ def findGreedyMove(gs, validMoves):  # Find best move based off material
         opponentsMoves = gs.getValidMoves()
         if gs.staleMate:
             opponentMaxScore = STALEMATE
+        if gs.draw:
+            opponentMaxScore = DRAW
         if gs.checkMate:
             opponentMaxScore = -CHECKMATE
         else:
@@ -193,6 +200,8 @@ def findGreedyMove(gs, validMoves):  # Find best move based off material
                     score = CHECKMATE
                 elif gs.staleMate:
                     score = STALEMATE
+                elif gs.draw:
+                    score = DRAW
                 else:
                     score = -turnMultiplier * scoreMaterial(gs.board)
 
@@ -266,26 +275,37 @@ def findMoveNegaMax(gs, validMoves, depth, turnMultiplier):
     return maxScore
 
 
-def findMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier): # Generating nonvalid moves
-    global nextMove, counter, favLine, bestEval, capture
+def findMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier, capture=False): # Generating nonvalid moves
+    global nextMove, counter, favLine, bestEval
     # Move Ordering - Implement later
     maxScore = -CHECKMATE - 1
 
     if (depth <= 0 and not capture) or (depth < -CAPTURES):
+
+        """        hashOf = hash(getFen(gs.board, gs.enpassantPossible, gs.whiteToMove, gs.currentCastlingRights))
+        indexx = ind(memo, hashOf)
+         # Hashing does not change speed :(
+        if indexx == None:
+            returnScore = turnMultiplier * scoreBoard(gs)
+            memo = np.vstack((memo, [hashOf, returnScore]))
+            return returnScore
+        else:
+            returnScore = memo[list(indexx)[0], 1]
+            hashTable += 1
+            return returnScore"""
         return turnMultiplier * scoreBoard(gs)
+    else:
+        capture = False
 
     for move in validMoves:
         gs.initMove(move, True)
-        capture = move.isCapture
-        phase = gamePhase(gs.board)
         counter += 1
         nextMoves = gs.getValidMoves()
-        score = -findMoveNegaMaxAlphaBeta(gs, nextMoves, depth - 1, -beta, -alpha, -turnMultiplier)
+        score = -findMoveNegaMaxAlphaBeta(gs, nextMoves, depth - 1, -beta, -alpha, -turnMultiplier, move.isCapture)
         if score > maxScore:
             maxScore = score
             if depth == DEPTH:
                 nextMove = move
-                bestEval = score
             if depth > 0:
                 bestLine[DEPTH - depth] = move
 
@@ -296,6 +316,62 @@ def findMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier)
             break
     return maxScore
 
+
+def getFen(board, enp, turn, castle):
+    spaces = 0
+    FEN = ""
+    for row in range(len(board)):
+        for col in range(len(board[row])):
+            square = board[row][col]
+            if square == "--":
+                spaces += 1
+                continue
+            else:
+                if spaces != 0:
+                    FEN += str(spaces)
+                    spaces = 0
+                piece = square[1]
+                if square == "wp":
+                    piece = piece.capitalize()
+                if square[0] == "b":
+                    piece = piece.lower()
+                FEN += piece
+        if spaces != 0:
+            FEN += str(spaces)
+            spaces = 0
+        if row != 7:
+            FEN += "/"
+    if turn:
+        FEN += " w "
+    else: FEN += " b "
+
+    if castle.wks:
+        FEN += "K"
+    if castle.wqs:
+        FEN += "Q"
+    if castle.bks:
+        FEN += "k"
+    if castle.bqs:
+        FEN += "q"
+
+    if enp != ():
+        FEN += " " + getRankFile(list(enp)[0], list(enp)[1])
+    return FEN
+
+ranksToRows = {"1": 7, "2": 6, "3": 5, "4": 4, "5": 3, "6": 2, "7": 1, "8": 0}
+rowsToRanks = {v: k for k, v in ranksToRows.items()}
+filesToCols = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5, "g": 6, "h": 7}
+colsToFiles = {v: k for k, v in filesToCols.items()}
+
+
+def getRankFile(r, c):
+    return colsToFiles[c] + rowsToRanks[r]
+
+
+def ind(array, item):
+    for idx, val in np.ndenumerate(array):
+        if val == item:
+            return idx
 
 def gamePhase(board):
     # find all pieces, remove later
@@ -315,11 +391,15 @@ def gamePhase(board):
     phase -= pieceCounts[0] * PawnPhase
     phase -= pieceCounts[1] * KnightPhase
     phase -= pieceCounts[2] * BishopPhase
+    if pieceCounts[2] == 2:
+        bishopCombo[0] = True
     phase -= pieceCounts[3] * RookPhase
     phase -= pieceCounts[4] * QueenPhase
     phase -= pieceCounts[5] * PawnPhase
     phase -= pieceCounts[6] * KnightPhase
     phase -= pieceCounts[7] * BishopPhase
+    if pieceCounts[7] == 2:
+        bishopCombo[1] = True
     phase -= pieceCounts[8] * RookPhase
     phase -= pieceCounts[9] * QueenPhase
 
@@ -332,13 +412,16 @@ def gamePhase(board):
 def scoreBoard(gs):
     if gs.checkMate:
         if gs.whiteToMove:
-            return -CHECKMATE  # Black Wins
+            return CHECKMATE  # Black Wins
         else:
-            return CHECKMATE  # White wins
+            return -CHECKMATE  # White wins
     elif gs.staleMate:
         return STALEMATE
+    elif gs.draw:
+        return DRAW
 
     score = 0
+    phase = gamePhase(gs.board)
     for row in range(len(gs.board)):
         for col in range(len(gs.board[row])):
             square = gs.board[row][col]
@@ -350,21 +433,24 @@ def scoreBoard(gs):
                     index = 7 - row
                 piecePositionScore = ((piecePositionScores[square[1]][index][col] * (256 - phase)) + (egPiecePositionScores[square[1]][index][col] * phase)) / 256
             if square[0] == "w":
-                score += (pieceScore[square[1]] + piecePositionScore)
+                score += (pieceScore[square[1]] + piecePositionScore * 0.05)
             if square[0] == "b":
-                score -= (pieceScore[square[1]] + piecePositionScore)
+                score -= (pieceScore[square[1]] + piecePositionScore * 0.05)
     if gs.castled[0]:
-            score += 0.9 * centipawnValue
-    if gs.castled[1]:
-            score -= 0.9 * centipawnValue
-
-    if all([not gs.currentCastlingRights.wqs, not gs.currentCastlingRights.bks, not gs.castled[0]]):
+        score += 0.9 * centipawnValue
+    elif not gs.currentCastlingRights.wqs and not gs.currentCastlingRights.bks:
         score -= 1 * centipawnValue
-    if all([not gs.currentCastlingRights.bqs, not gs.currentCastlingRights.bks, not gs.castled[1]]):
+    if gs.castled[1]:
+        score -= 0.9 * centipawnValue
+    elif not gs.currentCastlingRights.bqs and not gs.currentCastlingRights.bks:
         score += 1.2 * centipawnValue
 
-    # Bishop combo 700
 
+    # Bishop combo 700
+    if bishopCombo[0]:
+        score += 0.7 * centipawnValue
+    if bishopCombo[1]:
+        score -= 0.7 * centipawnValue
     return score
 
 def winningPercentage(pawnAdvantage):
@@ -391,3 +477,4 @@ def printEval(move, score, turn):
     for i in range(0, len(bestLine)):
         print(str(bestLine[i]), end=" ")
     print("Nodes: ", counter)
+    #print(hashTable)

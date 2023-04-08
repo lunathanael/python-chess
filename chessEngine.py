@@ -3,8 +3,6 @@ This class is responsible for storing all the information about the current stat
 responsible for determining the valid moves at the current state and keep a move log.
 """
 import numpy as np
-import random
-import time
 
 class GameState:
     def __init__(self):
@@ -27,16 +25,18 @@ class GameState:
         self.blackKingLocation = (0, 4)
         self.checkMate = False
         self.staleMate = False
+        self.draw = False
         self.enpassantPossible = ()  # Coordinates for the square at which enpassant is possible
         self.enpassantPossibleLog = [self.enpassantPossible]
         self.currentCastlingRights = CastleRights(True, True, True, True)
         self.castleRightsLog = [CastleRights(self.currentCastlingRights.wks, self.currentCastlingRights.bks,
                                              self.currentCastlingRights.wqs, self.currentCastlingRights.bqs)]
+        self.boardLog = np.zeros((1, 2))
 
         self.trying = False
         self.castled = [False, False]
 
-    def initMove(self, move, aiThinking=False):
+    def initMove(self, move, aiThinking=False, isAIMove=False):
         self.board[move.startRow][move.startCol] = "--"
         self.board[move.endRow][move.endCol] = move.pieceMoved
         self.moveLog.append(move)
@@ -48,7 +48,7 @@ class GameState:
 
         # Pawn Promotion
         if move.isPawnPromotion:
-            if self.trying or aiThinking:
+            if self.trying or aiThinking or isAIMove:
                 promotedPiece = move.promotionPiece
             else:
                 promotedPiece = input("Promote to Q, R, B, or N:")
@@ -78,8 +78,17 @@ class GameState:
                 self.board[move.endRow][move.endCol - 2] = "--"  # Erase old rook
 
 
+        self.whiteToMove = not self.whiteToMove
 
         if not self.trying:
+            hashOf = hash(getFen(self.board, self.enpassantPossible, self.whiteToMove, self.currentCastlingRights))
+            indexx = ind(self.boardLog, hashOf)
+            if indexx == None:
+                self.boardLog = np.vstack((self.boardLog, [hashOf, 1]))
+            else:
+                self.boardLog[list(indexx)[0], 1] += 1
+                if self.boardLog[list(indexx)[0], 1] >= 3:
+                    self.draw = True
             self.enpassantPossibleLog.append(self.enpassantPossible)
             # Update Castling Rights
             self.updateCastleRights(move)
@@ -87,11 +96,20 @@ class GameState:
                                                  self.currentCastlingRights.wqs, self.currentCastlingRights.bqs))
 
 
-        self.whiteToMove = not self.whiteToMove
-
-
     def undoMove(self):
         if len(self.moveLog) != 0:
+            if not self.trying:
+                hashOf = hash(getFen(self.board, self.enpassantPossible, self.whiteToMove, self.currentCastlingRights))
+                indexx = ind(self.boardLog, hashOf)
+                if indexx != None:
+                    if self.boardLog[list(indexx)[0], 1] == 1:
+                        self.boardLog = self.boardLog[:-1]
+                    elif self.boardLog[list(indexx)[0], 1] == 2:
+                        self.boardLog[list(indexx)[0], 1] -= 1
+                    elif self.boardLog[list(indexx)[0], 1] == 3:
+                        self.draw = False
+                        self.boardLog[list(indexx)[0], 1] -= 1
+
             move = self.moveLog.pop()
             self.board[move.startRow][move.startCol] = move.pieceMoved
             self.board[move.endRow][move.endCol] = move.pieceCaptured
@@ -124,6 +142,7 @@ class GameState:
                     self.board[move.endRow][move.endCol - 2] = self.board[move.endRow][move.endCol + 1]
                     self.board[move.endRow][move.endCol + 1] = "--"
 
+            self.draw = False
             self.checkMate = False
             self.staleMate = False
 
@@ -164,10 +183,7 @@ class GameState:
     # Checks are considered
     def getValidMoves(self):
         self.trying = True
-
         moves = self.getAllPossibleMoves()
-
-
         opp = "b" if self.whiteToMove else "w"
         for i in range(len(moves) - 1, -1, -1):
             self.initMove(moves[i])
@@ -185,10 +201,12 @@ class GameState:
                 self.checkMate = True
             else:
                 self.staleMate = True
+
         else:
             self.checkMate = False
             self.staleMate = False
         self.trying = False
+
         return moves
 
     def inCheck(self, opp):
@@ -494,3 +512,61 @@ class makeMove:
         if self.isCapture:
             moveString += "x"
         return moveString + endSquare
+
+
+def getFen(board, enp, turn, castle):
+    spaces = 0
+    FEN = ""
+    for row in range(len(board)):
+        for col in range(len(board[row])):
+            square = board[row][col]
+            if square == "--":
+                spaces += 1
+                continue
+            else:
+                if spaces != 0:
+                    FEN += str(spaces)
+                    spaces = 0
+                piece = square[1]
+                if square == "wp":
+                    piece = piece.capitalize()
+                if square[0] == "b":
+                    piece = piece.lower()
+                FEN += piece
+        if spaces != 0:
+            FEN += str(spaces)
+            spaces = 0
+        if row != 7:
+            FEN += "/"
+    if turn:
+        FEN += " w "
+    else:
+        FEN += " b "
+
+    if castle.wks:
+        FEN += "K"
+    if castle.wqs:
+        FEN += "Q"
+    if castle.bks:
+        FEN += "k"
+    if castle.bqs:
+        FEN += "q"
+
+    if enp != ():
+        FEN += " " + getRankFile(list(enp)[0], list(enp)[1])
+    return FEN
+
+ranksToRows = {"1": 7, "2": 6, "3": 5, "4": 4, "5": 3, "6": 2, "7": 1, "8": 0}
+rowsToRanks = {v: k for k, v in ranksToRows.items()}
+filesToCols = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5, "g": 6, "h": 7}
+colsToFiles = {v: k for k, v in filesToCols.items()}
+
+
+def getRankFile(r, c):
+    return colsToFiles[c] + rowsToRanks[r]
+
+
+def ind(array, item):
+    for idx, val in np.ndenumerate(array):
+        if val == item:
+            return idx

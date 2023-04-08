@@ -85,6 +85,9 @@ def main():
 
             # Key Handler
             elif e.type == pg.KEYDOWN:
+                if e.key == pg.K_l:
+                    printMoveLog(screen, gs, moveMade)
+
                 if e.key == pg.K_z:
                     gs.undoMove()
                     moveMade = True
@@ -120,7 +123,7 @@ def main():
                     if not moveFinderProcess.is_alive():
                         AIMove = returnQueue.get()
                         AIThinking = False
-                        gs.initMove(AIMove, AIThinking)
+                        gs.initMove(AIMove, AIThinking, True)
                         moveMade = True
                         animate = True
 
@@ -137,7 +140,7 @@ def main():
             if not moveFinderProcess.is_alive():
                 AIMove = returnQueue.get()
                 AIThinking = False
-                gs.initMove(AIMove, AIThinking)
+                gs.initMove(AIMove, AIThinking, True)
                 moveMade = True
                 animate = True
 
@@ -155,9 +158,12 @@ def main():
 
         drawGameState(screen, gs, playerClicks, validMoves, sqSelected, moveLogFont, moveMade)
 
-        if gs.checkMate or gs.staleMate:
+        if gs.checkMate or gs.staleMate or gs.draw:
             gameOver = True
-            drawEndgameText(screen, "StaleMate!" if gs.staleMate else "Black wins by Checkmate!" if gs.whiteToMove else "White wins by Checkmate!")
+            if gs.draw:
+                drawEndgameText(screen, "Draw!")
+            else:
+                drawEndgameText(screen, "StaleMate!" if gs.staleMate else "Black wins by Checkmate!" if gs.whiteToMove else "White wins by Checkmate!")
 
         clock.tick(MAX_FPS)
         pg.display.flip()
@@ -234,6 +240,27 @@ def drawMoveLog(screen, gs, font, moveMade):
         textY += textObject.get_height() + lineSpacing
     if moveMade:
         print(moveTexts)
+
+
+
+def printMoveLog(screen, gs, moveMade):
+    moveLog = gs.moveLog
+    moveTexts = []
+    for i in range(0, len(moveLog), 2):
+        moveString = str(i//2 + 1) + ". " + str(moveLog[i]) + " "
+        if i+1 < len(moveLog):
+            moveString += str(moveLog[i+1]) + " "
+        moveTexts.append(moveString)
+
+    movesPerRow = 3
+    text = ""
+    for i in range(0, len(moveTexts), movesPerRow):
+        text = ""
+        for j in range(movesPerRow):
+            if i + j < len(moveTexts):
+                text += moveTexts[i+j]
+        print(text)
+
 def animateMove(move, screen, board, clock):
     global colors
     dR = move.endRow - move.startRow
