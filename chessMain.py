@@ -2,6 +2,8 @@
 This is our main driver file, responsible for handling user input and displaying current GameState object.
 """
 import pygame as pg
+import os
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import chessEngine
 import chessAI as ai
 from multiprocessing import Process, Queue
@@ -12,7 +14,7 @@ MOVE_LOG_PANEL_WIDTH = 250
 MOVE_LOG_PANEL_HEIGHT = BOARD_HEIGHT
 DIMENSION = 8
 SQ_SIZE = BOARD_HEIGHT // DIMENSION
-MAX_FPS = 9999
+MAX_FPS = 99999
 IMAGES = {}
 
 
@@ -44,7 +46,7 @@ def main():
     sqSelected = ()
     playerClicks = []
 
-    playerOne = True # If player 1 is human, this will be True
+    playerOne = False # If player 1 is human, this will be True
     playerTwo = False # If player 2 is human, this will be True
 
     AIThinking = False
@@ -77,6 +79,7 @@ def main():
                                 animate = True
                                 sqSelected = ()
                                 playerClicks = []
+                                moveUndone = False
                         if not moveMade:
                             playerClicks = [sqSelected]
 
@@ -90,7 +93,8 @@ def main():
                     if AIThinking:
                         moveFinderProcess.terminate()
                         AIThinking = False
-                    moveUndone = True
+                    moveUndone = not moveUndone
+                    aiGaveup = False
 
                 if e.key == pg.K_r:
                     gs = chessEngine.GameState()
@@ -102,24 +106,41 @@ def main():
                     if AIThinking:
                         moveFinderProcess.terminate()
                         AIThinking = False
-                    moveUndone = True
+                    moveUndone = not moveUndone
+
+                if e.key == pg.K_p:
+                    if not AIThinking and not moveUndone:
+                        AIThinking = True
+                        print("White", end=" ") if gs.whiteToMove else print("Black", end=" ")
+                        print("Thinking")
+                        returnQueue = Queue()
+                        moveFinderProcess = Process(target=ai.findBestMove, args=(gs, gs.whiteToMove, returnQueue))
+                        moveFinderProcess.start()
+
+                    if not moveFinderProcess.is_alive():
+                        AIMove = returnQueue.get()
+                        AIThinking = False
+                        if AIMove == None:
+                            AImove = ai.findRandomMove(validMoves)
+                        else:
+                            gs.initMove(AIMove)
+                        moveMade = True
+                        animate = True
 
         # AI move finder Logic
         if not gameOver and not humanTurn and not moveUndone:
             if not AIThinking:
                 AIThinking = True
+                print("White", end=" ") if gs.whiteToMove else print("Black", end=" ")
                 print("Thinking")
                 returnQueue = Queue()
-                moveFinderProcess = Process(target=ai.findBestMove, args=(gs, validMoves, returnQueue))
+                moveFinderProcess = Process(target=ai.findBestMove, args=(gs, validMoves, gs.whiteToMove, returnQueue))
                 moveFinderProcess.start()
 
             if not moveFinderProcess.is_alive():
                 AIMove = returnQueue.get()
                 AIThinking = False
-                if AIMove == None:
-                    AImove = ai.findRandomMove(validMoves)
-                else:
-                    gs.initMove(AIMove)
+                gs.initMove(AIMove)
                 moveMade = True
                 animate = True
 
@@ -135,7 +156,7 @@ def main():
         # for move in gs.moveLog:
         # print(move.getChessNotation(), end=", ")
 
-        drawGameState(screen, gs, playerClicks, validMoves, sqSelected, moveLogFont)
+        drawGameState(screen, gs, playerClicks, validMoves, sqSelected, moveLogFont, moveMade)
 
         if gs.checkMate or gs.staleMate:
             gameOver = True
@@ -148,11 +169,11 @@ def main():
 """
 Responsible for all the graphics within the current game state.
 """
-def drawGameState(screen, gs, squaresHighlighted, validMoves, sqSelected, moveLogFont):
+def drawGameState(screen, gs, squaresHighlighted, validMoves, sqSelected, moveLogFont, moveMade):
     drawBoardSquares(screen)
     highlightSquares(screen, gs, validMoves, sqSelected)
     drawPieces(screen, gs.board)
-    drawMoveLog(screen, gs, moveLogFont)
+    drawMoveLog(screen, gs, moveLogFont, moveMade)
 
 
 def drawBoardSquares(screen):
@@ -191,7 +212,7 @@ def drawPieces(screen, board):
                 screen.blit(IMAGES[piece], pg.Rect(c * SQ_SIZE, r * SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
 # Draws the Move Log
-def drawMoveLog(screen, gs, font):
+def drawMoveLog(screen, gs, font, moveMade):
     moveLogRect = pg.Rect(BOARD_WIDTH, 0, MOVE_LOG_PANEL_WIDTH, MOVE_LOG_PANEL_HEIGHT)
     pg.draw.rect(screen, pg.Color("black"), moveLogRect)
     moveLog = gs.moveLog
@@ -214,6 +235,8 @@ def drawMoveLog(screen, gs, font):
         textLocation = moveLogRect.move(padding, textY)
         screen.blit(textObject, textLocation)
         textY += textObject.get_height() + lineSpacing
+    if moveMade:
+        print(moveTexts)
 def animateMove(move, screen, board, clock):
     global colors
     dR = move.endRow - move.startRow
@@ -248,6 +271,7 @@ def drawEndgameText(screen, text):
     screen.blit(textObject, textLocation)
     textObject = font.render(text, 0, pg.Color("Black"))
     screen.blit(textObject, textLocation.move(2, 2))
+
 
 if __name__ == '__main__':
     main()

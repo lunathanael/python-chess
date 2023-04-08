@@ -48,7 +48,7 @@ class GameState:
         # Pawn Promotion
         if move.isPawnPromotion:
             if self.trying or True: # Random AI
-                promotedPiece = "Q"
+                promotedPiece = move.promotionPiece
             else:
                 promotedPiece = input("Promote to Q, R, B, or N:")
             self.board[move.endRow][move.endCol] = move.pieceMoved[0] + promotedPiece
@@ -261,7 +261,7 @@ class GameState:
                     self.moveFunctions[piece](r, c, moves)  # Call the appropriate move function based off of piece type
         return moves
 
-    def getPawnMoves(self, r, c, moves):
+    def getPawnMoves(self, r, c, moves): # Add promotion choices
         if self.whiteToMove:
             moveAmount = -1
             startRow = 6
@@ -274,17 +274,35 @@ class GameState:
             targetColor = "w"
 
         if self.board[r + moveAmount][c] == "--":
-            moves.append(makeMove((r, c), (r + moveAmount, c), self.board))
             if r == startRow and self.board[r + (2 * moveAmount)][c] == "--":
                 moves.append(makeMove((r, c), (r + (2 * moveAmount), c), self.board))
+            if r == backRow:
+                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="Q"))
+                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="N"))
+                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="B"))
+                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="R"))
+            else:
+                moves.append(makeMove((r, c), (r + moveAmount, c), self.board))
         if c - 1 >= 0:
             if self.board[r + moveAmount][c - 1][0] == targetColor:
-                moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board))
+                if r == backRow:
+                    moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board, promotionPiece="Q"))
+                    moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board, promotionPiece="N"))
+                    moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board, promotionPiece="B"))
+                    moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board, promotionPiece="R"))
+                else:
+                    moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board))
             elif (r + moveAmount, c - 1) == self.enpassantPossible:
                 moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board, isEnpassantMove=True))
         if c + 1 <= 7:
             if self.board[r + moveAmount][c + 1][0] == targetColor:
-                moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board))
+                if r == backRow:
+                    moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board, "Q"))
+                    moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board, "N"))
+                    moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board, "B"))
+                    moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board, "R"))
+                else:
+                    moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board))
             elif (r + moveAmount, c + 1) == self.enpassantPossible:
                 moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board, isEnpassantMove=True))
 
@@ -371,6 +389,8 @@ class GameState:
     def getCastleMoves(self, r, c, moves, allyTurn):
         if self.inCheck(allyTurn):
             return
+        elif not ((r == 0 and c == 4) or (r == 7 and c == 4)):
+            return
         if (self.whiteToMove and self.currentCastlingRights.wks) or (
                 not self.whiteToMove and self.currentCastlingRights.bks):
             self.getKingsideCastleMoves(r, c, moves, allyTurn)
@@ -403,7 +423,7 @@ class makeMove:
     filesToCols = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5, "g": 6, "h": 7}
     colsToFiles = {v: k for k, v in filesToCols.items()}
 
-    def __init__(self, startSq, endSq, board, isEnpassantMove=False, isCastleMove=False):
+    def __init__(self, startSq, endSq, board, promotionPiece="Q", isEnpassantMove=False, isCastleMove=False):
         self.startRow = startSq[0]
         self.startCol = startSq[1]
         self.endRow = endSq[0]
@@ -415,6 +435,7 @@ class makeMove:
         # Pawn promotion
         self.isPawnPromotion = (
                     (self.pieceMoved == "wp" and self.endRow == 0) or (self.pieceMoved == "bp" and self.endRow == 7))
+        self.promotionPiece = promotionPiece
 
         # Enpassant
         self.isEnpassantMove = isEnpassantMove
@@ -426,7 +447,7 @@ class makeMove:
         # Castle move
         self.isCastleMove = isCastleMove
 
-        # Assigning a identity for each move
+        # Assigning an identity for each move
         self.moveID = self.startRow * 1000 + self.startCol * 100 + self.endRow * 10 + self.endCol
 
     """
@@ -454,6 +475,8 @@ class makeMove:
         if self.pieceMoved[1] == "p":
             if self.isCapture:
                 return self.colsToFiles[self.startCol] + "x" + endSquare
+            if self.isPawnPromotion:
+                return endSquare + self.promotionPiece
             else:
                 return endSquare
 
