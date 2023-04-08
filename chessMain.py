@@ -74,7 +74,7 @@ def main():
                         move = chessEngine.makeMove(playerClicks[0], playerClicks[1], gs.board)
                         for i in range(len(validMoves)):
                             if move == validMoves[i]:
-                                gs.initMove(validMoves[i])
+                                gs.initMove(validMoves[i], AIThinking)
                                 moveMade = True
                                 animate = True
                                 sqSelected = ()
@@ -114,16 +114,13 @@ def main():
                         print("White", end=" ") if gs.whiteToMove else print("Black", end=" ")
                         print("Thinking")
                         returnQueue = Queue()
-                        moveFinderProcess = Process(target=ai.findBestMove, args=(gs, gs.whiteToMove, returnQueue))
+                        moveFinderProcess = Process(target=ai.findBestMove, args=(gs, validMoves, gs.whiteToMove, returnQueue))
                         moveFinderProcess.start()
 
                     if not moveFinderProcess.is_alive():
                         AIMove = returnQueue.get()
                         AIThinking = False
-                        if AIMove == None:
-                            AImove = ai.findRandomMove(validMoves)
-                        else:
-                            gs.initMove(AIMove)
+                        gs.initMove(AIMove, AIThinking)
                         moveMade = True
                         animate = True
 
@@ -140,7 +137,7 @@ def main():
             if not moveFinderProcess.is_alive():
                 AIMove = returnQueue.get()
                 AIThinking = False
-                gs.initMove(AIMove)
+                gs.initMove(AIMove, AIThinking)
                 moveMade = True
                 animate = True
 

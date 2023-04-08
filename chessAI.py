@@ -1,10 +1,12 @@
 import random
 
-pieceScore = {"K": 20000, "Q": 900, "R": 500, "N": 320, "B": 330, "p": 100}
+
+centipawnValue = 160
+pieceScore = {"K": 20000, "Q": 1160, "R": 670, "N": 450, "B": 480, "p": centipawnValue}
 CHECKMATE = 100000
 STALEMATE = 0
-DEPTH = 2
-CAPTURES = 3
+DEPTH = 4
+CAPTURES = 2
 MAX_DEPTH = DEPTH + CAPTURES
 
 PawnPhase = 0
@@ -12,23 +14,21 @@ KnightPhase = 1
 BishopPhase = 1
 RookPhase = 2
 QueenPhase = 4
-TotalPhase = PawnPhase*16 + KnightPhase*4 + BishopPhase*4 + RookPhase*4 + QueenPhase*2
+TotalPhase = PawnPhase * 16 + KnightPhase * 4 + BishopPhase * 4 + RookPhase * 4 + QueenPhase * 2
 phase = TotalPhase
 bestLine = [None] * DEPTH
 bestEval = 0
 capture = False
 
-
-
 knightScores = [
-    [-50,-40,-30,-30,-30,-30,-40, -50],
-    [-40,-20,  0,  0,  0,  0,-20, -40],
-    [-30,  0, 10, 15, 15, 10,  0, -30],
-    [-30,  5, 15, 20, 20, 15,  5, -30],
-    [-30,  5, 15, 20, 20, 15,  5, -30],
-    [-30,  0, 10, 15, 15, 10,  0, -30],
-    [-40,-20,  0,  0,  0,  0,-20, -40],
-    [-50,-40,-30,-30,-30,-30,-40, -50]]
+    [-50, -40, -30, -30, -30, -30, -40, -50],
+    [-40, -20, 0, 0, 0, 0, -20, -40],
+    [-30, 0, 10, 15, 15, 10, 0, -30],
+    [-30, 5, 15, 20, 20, 15, 5, -30],
+    [-30, 5, 15, 20, 20, 15, 5, -30],
+    [-30, 0, 10, 15, 15, 10, 0, -30],
+    [-40, -20, 0, 0, 0, 0, -20, -40],
+    [-50, -40, -30, -30, -30, -30, -40, -50]]
 
 egKnightScores = [
     [-58, -38, -13, -28, -31, -27, -63, -99],
@@ -42,14 +42,14 @@ egKnightScores = [
 ]
 
 kingScores = [
-    [-30,-40,-40,-50,-50,-40,-40,-30,],
-    [-30,-40,-40,-50,-50,-40,-40,-30],
-    [-30,-40,-40,-50,-50,-40,-40,-30],
-    [-30,-40,-40,-50,-50,-40,-40,-30],
-    [-20,-30,-30,-40,-40,-30,-30,-20],
-    [-10,-20,-20,-20,-20,-20,-20,-10],
-    [20, 20,  0,  0,  0,  0, 20, 20],
-    [20, 30, 10,  0,  0, 10, 30, 20]]
+    [-30, -40, -40, -50, -50, -40, -40, -30, ],
+    [-30, -40, -40, -50, -50, -40, -40, -30],
+    [-30, -40, -40, -50, -50, -40, -40, -30],
+    [-30, -40, -40, -50, -50, -40, -40, -30],
+    [-20, -30, -30, -40, -40, -30, -30, -20],
+    [-10, -20, -20, -20, -20, -20, -20, -10],
+    [20, 20, 0, 0, 0, 0, 20, 20],
+    [20, 30, 10, 0, 0, 10, 30, 20]]
 
 egKingScores = [
     [-74, -35, -18, -18, -11, 15, 4, -17],
@@ -62,14 +62,14 @@ egKingScores = [
     [-53, -34, -21, -11, -28, -14, -24, -43]]
 
 rookScores = [
-    [0,  0,  0,  0,  0,  0,  0,  0],
-    [5, 10, 10, 10, 10, 10, 10,  5],
-    [-5,  0,  0,  0,  0,  0,  0, -5],
-    [-5,  0,  0,  0,  0,  0,  0, -5],
-    [-5,  0,  0,  0,  0,  0,  0, -5],
-    [-5,  0,  0,  0,  0,  0,  0, -5],
-    [-5,  0,  0,  0,  0,  0,  0, -5],
-    [0,  0,  5,  5,  5,  5,  0,  0]]
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [5, 10, 10, 10, 10, 10, 10, 5],
+    [-5, 0, 0, 0, 0, 0, 0, -5],
+    [-5, 0, 0, 0, 0, 0, 0, -5],
+    [-5, 0, 0, 0, 0, 0, 0, -5],
+    [-5, 0, 0, 0, 0, 0, 0, -5],
+    [-5, 0, 0, 0, 0, 0, 0, -5],
+    [0, 0, 5, 5, 5, 5, 0, 0]]
 
 egRookScores = [
     [13, 10, 18, 15, 12, 12, 8, 5],
@@ -83,35 +83,35 @@ egRookScores = [
 ]
 
 pawnScores = [
-    [0,  0,  0,  0,  0,  0,  0,  0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
     [50, 50, 50, 50, 50, 50, 50, 50],
     [10, 10, 20, 30, 30, 20, 10, 10],
-    [5,  5, 10, 25, 25, 10,  5,  5],
-    [0,  0,  0, 20, 20,  0,  0,  0],
-    [5, -5,-10,  0,  0,-10, -5,  5],
-    [5, 10, 10,-20,-20, 10, 10,  5],
-    [0,  0,  0,  0,  0,  0,  0,  0]]
+    [5, 5, 10, 25, 25, 10, 5, 5],
+    [0, 0, 10, 30, 30, 10, 0, 0],
+    [5, 7, 10, 10, 10, 10, 7, 5],
+    [5, 10, 10, -20, -20, 10, 10, 5],
+    [0, 0, 0, 0, 0, 0, 0, 0]]
 
 egPawnScores = [
-    [0,   0,   0,   0,   0,   0,   0,   0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
     [178, 173, 158, 134, 147, 132, 165, 187],
-     [94, 100,  85,  67,  56,  53,  82,  84],
-     [32,  24,  13,   5,  -2,   4,  17,  17],
-     [13,   9,  -3,  -7,  -7,  -8,   3,  -1],
-     [4,   7,  -6,   1,   0,  -5,  -1,  -8],
-     [13,   8,   8,  10,  13,   0,   2,  -7],
-      [0,   0,   0,   0,   0,   0,   0,   0]
+    [94, 100, 85, 67, 56, 53, 82, 84],
+    [32, 24, 13, 5, -2, 4, 17, 17],
+    [13, 9, -3, -7, -7, -8, 3, -1],
+    [4, 7, -6, 1, 0, -5, -1, -8],
+    [13, 8, 8, 10, 13, 0, 2, -7],
+    [0, 0, 0, 0, 0, 0, 0, 0]
 ]
 
 bishopScores = [
-    [-20,-10,-10,-10,-10,-10,-10,-20],
-    [-10,  0,  0,  0,  0,  0,  0,-10],
-    [-10,  0,  5, 10, 10,  5,  0,-10],
-    [-10,  5,  5, 10, 10,  5,  5,-10],
-    [-10,  0, 10, 10, 10, 10,  0,-10],
-    [-10, 10, 10, 10, 10, 10, 10,-10],
-    [-10,  5,  0,  0,  0,  0,  5,-10],
-    [-20,-10,-10,-10,-10,-10,-10,-20]]
+    [-20, -10, -10, -10, -10, -10, -10, -20],
+    [-10, 0, 0, 0, 0, 0, 0, -10],
+    [-10, 0, 5, 10, 10, 5, 0, -10],
+    [-10, 5, 5, 10, 10, 5, 5, -10],
+    [-10, 0, 10, 10, 10, 10, 0, -10],
+    [-10, 10, 10, 10, 10, 10, 10, -10],
+    [-10, 5, 0, 0, 0, 0, 5, -10],
+    [-20, -10, -10, -10, -10, -10, -10, -20]]
 
 egBishopScores = [
     [-14, -21, -11, -8, -7, -9, -17, -24],
@@ -125,14 +125,14 @@ egBishopScores = [
 ]
 
 queenScores = [
-    [-20,-10,-10, -5, -5,-10,-10,-20],
-    [-10,  0,  0,  0,  0,  0,  0,-10],
-    [-10,  0,  5,  5,  5,  5,  0,-10],
-    [-5,  0,  5,  5,  5,  5,  0, -5],
-    [0,  0,  5,  5,  5,  5,  0, -5],
-    [-10,  5,  5,  5,  5,  5,  0,-10],
-    [-10,  0,  5,  0,  0,  0,  0,-10],
-    [-20,-10,-10, -5, -5,-10,-10,-20]]
+    [-20, -10, -10, -5, -5, -10, -10, -20],
+    [-10, 0, 0, 0, 0, 0, 0, -10],
+    [-10, 0, 5, 5, 5, 5, 0, -10],
+    [-5, 0, 5, 5, 5, 5, 0, -5],
+    [0, 0, 5, 5, 5, 5, 0, -5],
+    [-10, 5, 5, 5, 5, 5, 0, -10],
+    [-10, 0, 5, 0, 0, 0, 0, -10],
+    [-20, -10, -10, -5, -5, -10, -10, -20]]
 
 egQueenScores = [
     [-9, 22, 22, 27, 27, 19, 10, 20],
@@ -145,9 +145,10 @@ egQueenScores = [
     [-33, -28, -22, -43, -5, -32, -20, -41]
 ]
 
-
-piecePositionScores = {"N": knightScores, "K": kingScores, "B": bishopScores, "p": pawnScores, "R": rookScores, "Q": queenScores}
-egPiecePositionScores = {"N": egKnightScores, "K": egKingScores, "B": egBishopScores, "p": egPawnScores, "R": egRookScores, "Q": egQueenScores}
+piecePositionScores = {"N": knightScores, "K": kingScores, "B": bishopScores, "p": pawnScores, "R": rookScores,
+                       "Q": queenScores}
+egPiecePositionScores = {"N": egKnightScores, "K": egKingScores, "B": egBishopScores, "p": egPawnScores,
+                         "R": egRookScores, "Q": egQueenScores}
 
 
 def findBestMove(gs, validMoves, turn, returnQueue):
@@ -156,26 +157,28 @@ def findBestMove(gs, validMoves, turn, returnQueue):
     nextMove = None
     random.shuffle(validMoves)
     findMoveNegaMaxAlphaBeta(gs, validMoves, DEPTH, -CHECKMATE, CHECKMATE, 1 if gs.whiteToMove else -1)
-    #findGreedyMove(gs, validMoves, DEPTH, gs.whiteToMove)
+    # findGreedyMove(gs, validMoves, DEPTH, gs.whiteToMove)
     printEval(nextMove, bestEval, turn)
     returnQueue.put(nextMove)
 
-def findRandomMove(validMoves): # Find Random Move
+
+def findRandomMove(validMoves):  # Find Random Move
     if len(validMoves) != 0:
         return validMoves[random.randint(0, len(validMoves) - 1)]
     else:
         return None
 
+
 # Greedy score based 2 depth
-def findGreedyMove(gs, validMoves): # Find best move based off material
+def findGreedyMove(gs, validMoves):  # Find best move based off material
     turnMultiplier = 1 if gs.whiteToMove else -1
 
     opponentMinMaxScore = CHECKMATE
     bestPlayerMove = None
 
-    random.shuffle(validMoves) # Variation
+    random.shuffle(validMoves)  # Variation
     for playerMove in validMoves:
-        gs.initMove(playerMove)
+        gs.initMove(playerMove, True)
         opponentsMoves = gs.getValidMoves()
         if gs.staleMate:
             opponentMaxScore = STALEMATE
@@ -184,7 +187,7 @@ def findGreedyMove(gs, validMoves): # Find best move based off material
         else:
             opponentMaxScore = -CHECKMATE
             for opponentsMove in opponentsMoves:
-                gs.initMove(opponentsMove)
+                gs.initMove(opponentsMove, True)
                 gs.getValidMoves()
                 if gs.checkMate:
                     score = CHECKMATE
@@ -221,7 +224,7 @@ def findMoveMinMax(gs, validMoves, depth, whiteToMove):
     if whiteToMove:
         maxScore = -CHECKMATE
         for move in validMoves:
-            gs.initMove(move)
+            gs.initMove(move, True)
             nextMoves = gs.getValidMoves()
             score = findMoveMinMax(gs, nextMoves, depth - 1, False)
             if score > maxScore:
@@ -233,7 +236,7 @@ def findMoveMinMax(gs, validMoves, depth, whiteToMove):
     else:
         minScore = CHECKMATE
         for move in validMoves:
-            gs.initMove(move)
+            gs.initMove(move, True)
             nextMoves = gs.getValidMoves()
             score = findMoveMinMax(gs, nextMoves, depth - 1, True)
             if score < minScore:
@@ -243,6 +246,7 @@ def findMoveMinMax(gs, validMoves, depth, whiteToMove):
             gs.undoMove()
         return minScore
 
+
 def findMoveNegaMax(gs, validMoves, depth, turnMultiplier):
     global nextMove
 
@@ -251,7 +255,7 @@ def findMoveNegaMax(gs, validMoves, depth, turnMultiplier):
 
     maxScore = -CHECKMATE
     for move in validMoves:
-        gs.initMove(move)
+        gs.initMove(move, True)
         nextMoves = gs.getValidMoves()
         score = -findMoveNegaMax(gs, nextMoves, depth - 1, -turnMultiplier)
         if score > maxScore:
@@ -262,8 +266,8 @@ def findMoveNegaMax(gs, validMoves, depth, turnMultiplier):
     return maxScore
 
 
-def findMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier):
-    global nextMove, counter, favLine,  bestEval, capture
+def findMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier): # Generating nonvalid moves
+    global nextMove, counter, favLine, bestEval, capture
     # Move Ordering - Implement later
     maxScore = -CHECKMATE - 1
 
@@ -271,7 +275,7 @@ def findMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier)
         return turnMultiplier * scoreBoard(gs)
 
     for move in validMoves:
-        gs.initMove(move)
+        gs.initMove(move, True)
         capture = move.isCapture
         phase = gamePhase(gs.board)
         counter += 1
@@ -296,7 +300,8 @@ def findMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier)
 def gamePhase(board):
     # find all pieces, remove later
     pieceCounts = [0] * 12
-    pieceIndex = {"wp":0 , "wN": 1, "wB": 2, "wR": 3, "wQ": 4, "bp": 5, "bN": 6, "bB": 7, "bR": 8, "bQ": 9, "wK": 10, "bK": 11}
+    pieceIndex = {"wp": 0, "wN": 1, "wB": 2, "wR": 3, "wQ": 4, "bp": 5, "bN": 6, "bB": 7, "bR": 8, "bQ": 9, "wK": 10,
+                  "bK": 11}
     for row in range(len(board)):
         for col in range(len(board[row])):
             square = board[row][col]
@@ -304,7 +309,6 @@ def gamePhase(board):
                 continue
             else:
                 pieceCounts[pieceIndex[square]] += 1
-
 
     phase = TotalPhase
 
@@ -328,9 +332,9 @@ def gamePhase(board):
 def scoreBoard(gs):
     if gs.checkMate:
         if gs.whiteToMove:
-            return -CHECKMATE # Black Wins
+            return -CHECKMATE  # Black Wins
         else:
-            return CHECKMATE # White wins
+            return CHECKMATE  # White wins
     elif gs.staleMate:
         return STALEMATE
 
@@ -338,26 +342,36 @@ def scoreBoard(gs):
     for row in range(len(gs.board)):
         for col in range(len(gs.board[row])):
             square = gs.board[row][col]
-            if square != "--": # Score Positionally
+            if square != "--":  # Score Positionally
                 piecePositionScore = 0
                 if square[0] == "w":
                     index = row
                 else:
                     index = 7 - row
-                    piecePositionScore = ((piecePositionScores[square[1]][index][col] * (256 - phase))
-                                          + (egPiecePositionScores[square[1]][index][col] * phase)) / 256
+                piecePositionScore = ((piecePositionScores[square[1]][index][col] * (256 - phase)) + (egPiecePositionScores[square[1]][index][col] * phase)) / 256
             if square[0] == "w":
-                score += pieceScore[square[1]] + piecePositionScore * 0.2
+                score += (pieceScore[square[1]] + piecePositionScore)
             if square[0] == "b":
-                score -= pieceScore[square[1]] + piecePositionScore * 0.2
+                score -= (pieceScore[square[1]] + piecePositionScore)
+    if gs.castled[0]:
+            score += 0.9 * centipawnValue
+    if gs.castled[1]:
+            score -= 0.9 * centipawnValue
+
+    if all([not gs.currentCastlingRights.wqs, not gs.currentCastlingRights.bks, not gs.castled[0]]):
+        score -= 1 * centipawnValue
+    if all([not gs.currentCastlingRights.bqs, not gs.currentCastlingRights.bks, not gs.castled[1]]):
+        score += 1.2 * centipawnValue
+
+    # Bishop combo 700
+
     return score
 
-
 def winningPercentage(pawnAdvantage):
-    return 1 / (1 + 10**(-pawnAdvantage / 4))
+    return 1 / (1 + 10 ** (-pawnAdvantage / 4))
 
 
-def scoreMaterial(board): # Calculate material
+def scoreMaterial(board):  # Calculate material
     score = 0
     for row in board:
         for square in row:
@@ -365,13 +379,15 @@ def scoreMaterial(board): # Calculate material
                 score += pieceScore[square[1]]
             if square[0] == "b":
                 score -= pieceScore[square[1]]
+
     return score
+
 
 def printEval(move, score, turn):
     mult = 1 if turn else -1
-    winChance = winningPercentage(mult * score / 100)
+    winChance = winningPercentage(score / centipawnValue)
     print("Engine Move:", move, ", Win estimate:", str(round(winChance * 100, 2)), "%, ", "Evaluation:",
-          str(round(score / 100, 2)), end=" , Line: ")
+          str(round(mult * score / 100, 2)), end=" , Line: ")
     for i in range(0, len(bestLine)):
         print(str(bestLine[i]), end=" ")
     print("Nodes: ", counter)

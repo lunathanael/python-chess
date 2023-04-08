@@ -34,8 +34,9 @@ class GameState:
                                              self.currentCastlingRights.wqs, self.currentCastlingRights.bqs)]
 
         self.trying = False
+        self.castled = [False, False]
 
-    def initMove(self, move):
+    def initMove(self, move, aiThinking=False):
         self.board[move.startRow][move.startCol] = "--"
         self.board[move.endRow][move.endCol] = move.pieceMoved
         self.moveLog.append(move)
@@ -47,7 +48,7 @@ class GameState:
 
         # Pawn Promotion
         if move.isPawnPromotion:
-            if self.trying or True: # Random AI
+            if self.trying or aiThinking:
                 promotedPiece = move.promotionPiece
             else:
                 promotedPiece = input("Promote to Q, R, B, or N:")
@@ -65,6 +66,10 @@ class GameState:
 
         # Castle move
         if move.isCastleMove:
+            if self.whiteToMove:
+                self.castled[0] = True
+            else:
+                self.castled[1] = True
             if move.endCol - move.startCol == 2:  # Kingside Castle
                 self.board[move.endRow][move.endCol - 1] = self.board[move.endRow][move.endCol + 1]  # Add Rook
                 self.board[move.endRow][move.endCol + 1] = "--"  # Erase old rook
@@ -476,7 +481,7 @@ class makeMove:
             if self.isCapture:
                 return self.colsToFiles[self.startCol] + "x" + endSquare
             if self.isPawnPromotion:
-                return endSquare + self.promotionPiece
+                return endSquare + "=" + self.promotionPiece
             else:
                 return endSquare
 
