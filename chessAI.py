@@ -7,7 +7,7 @@ CHECKMATE = 100000
 STALEMATE = 0
 DRAW = 0
 DEPTH = 2 # Halfmoves, recommened to be even
-ATTACK = 4 # Halfmoves, recommened to be Depth + attacks is even, captures or checks
+ATTACK = 7 # Halfmoves, recommened to be Depth + attacks is even, captures or checks
 MAX_DEPTH = DEPTH + ATTACK
 
 PawnPhase = 0
@@ -23,6 +23,8 @@ memo = np.zeros((1,2))
 hashTable = 0
 bishopCombo = [False, False]
 bestEval = 0
+lineLog = 0
+
 
 knightScores = [
     [-50, -40, -30, -30, -30, -30, -40, -50],
@@ -161,6 +163,7 @@ def findBestMove(gs, validMoves, turn, returnQueue):
     nextMove = None
     random.shuffle(validMoves)
     bestEval = findMoveNegaMaxAlphaBeta(gs, validMoves, DEPTH, -CHECKMATE, CHECKMATE, 1 if gs.whiteToMove else -1)
+    #bestEval = minimax(gs, validMoves, 0, -CHECKMATE, CHECKMATE, gs.whiteToMove, attack=False)
     # findGreedyMove(gs, validMoves, DEPTH, gs.whiteToMove)
     gs.initMove(nextMove, False, True)
     printEval(nextMove, bestEval, turn)
@@ -287,7 +290,7 @@ def findMoveNegaMax(gs, validMoves, depth, turnMultiplier):
 
 
 def findMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier, attack=False): # Generating nonvalid moves
-    global nextMove, counter, favLine, bestEval
+    global nextMove, counter, favLine, bestEval, lineLog
     # Move Ordering - Implement later
     maxScore = -CHECKMATE - 1
     counter += 1
@@ -319,6 +322,8 @@ def findMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier,
             if depth == DEPTH:
                 nextMove = move
             if depth > 0:
+                if depth == 1:
+                    lineLog += 1
                 bestLine[DEPTH - depth] = move
         gs.undoMove()
         alpha = max(maxScore, alpha)
@@ -326,6 +331,40 @@ def findMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier,
         if alpha >= beta:
             break
     return maxScore
+
+
+def minimax(gs, validMoves, depth, alpha, beta, whiteToMove, attack=False):
+
+    if (depth >= DEPTH and not attack) or (depth >= MAX_DEPTH):
+        return scoreBoard(gs)
+
+    if whiteToMove:
+        bestVal = -CHECKMATE - 1
+        for move in validMoves:
+            gs.initMove(move, True)
+            nextMoves = gs.getValidMoves()
+            attack = (move.isCapture or gs.check)
+            value = minimax(gs, validMoves, depth + 1, alpha, beta, False, attack)
+            bestVal = max(bestVal, value)
+            alpha = max(alpha, bestVal)
+            if beta <= alpha:
+                break
+        return bestVal
+
+    else:
+        bestVal = +CHECKMATE + 1
+        for move in validMoves:
+            gs.initMove(move, True)
+            nextMoves = gs.getValidMoves()
+            attack = (move.isCapture or gs.check)
+            value = minimax(gs, validMoves, depth + 1, alpha, beta, True, attack)
+            bestVal = min(bestVal, value)
+            beta = min(beta, bestVal)
+            if beta <= alpha:
+                break
+        return bestVal
+
+
 
 
 def findWorstMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier, attack=False): # Generating nonvalid moves

@@ -46,8 +46,8 @@ def main():
     sqSelected = ()
     playerClicks = []
 
-    playerOne = False # If player 1 is human, this will be True
-    playerTwo = False # If player 2 is human, this will be True
+    playerOne = True # If player 1 is human, this will be True
+    playerTwo = True # If player 2 is human, this will be True
 
     AIThinking = False
     moveFinderProcess = False
@@ -117,11 +117,7 @@ def main():
                         print("White", end=" ") if gs.whiteToMove else print("Black", end=" ")
                         print("Thinking")
                         returnQueue = Queue()
-                        if gs.whiteToMove:
-                            moveFinderProcess = Process(target=ai.findBestMove, args=(gs, validMoves, gs.whiteToMove, returnQueue))
-                        else:
-                            moveFinderProcess = Process(target=ai.findBestMove,
-                                                        args=(gs, validMoves, gs.whiteToMove, returnQueue))
+                        moveFinderProcess = Process(target=ai.findBestMove, args=(gs, validMoves, gs.whiteToMove, returnQueue))
                         moveFinderProcess.start()
 
                     if not moveFinderProcess.is_alive():
@@ -138,11 +134,7 @@ def main():
                 print("White", end=" ") if gs.whiteToMove else print("Black", end=" ")
                 print("Thinking")
                 returnQueue = Queue()
-                if gs.whiteToMove:
-                    moveFinderProcess = Process(target=ai.findBestMove,
-                                                args=(gs, validMoves, gs.whiteToMove, returnQueue))
-                else:
-                    moveFinderProcess = Process(target=ai.findWorstMove,
+                moveFinderProcess = Process(target=ai.findBestMove,
                                                 args=(gs, validMoves, gs.whiteToMove, returnQueue))
                 moveFinderProcess.start()
 
