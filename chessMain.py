@@ -35,7 +35,7 @@ def main():
     clock = pg.time.Clock()
     screen.fill(pg.Color("white"))
     gs = chessEngine.GameState()
-    validMoves = gs.getValidMoves()
+    validMoves = gs.getValidCapturesFirst()
     moveMade = False # Flag variable for when a move is made, to regenerate valid moves.
     animate = False # Flag variable for when we should animate a move
     moveLogFont = pg.font.SysFont("Arial", 16, False, False)
@@ -46,12 +46,23 @@ def main():
     sqSelected = ()
     playerClicks = []
 
-    playerOne = False # If player 1 is human, this will be True
-    playerTwo = False # If player 2 is human, this will be True
-
     AIThinking = False
     moveFinderProcess = False
     moveUndone = False
+
+
+
+
+
+
+    playerOne = True # If player 1 is human, this will be True
+    playerTwo = True # If player 2 is human, this will be True
+
+
+
+
+
+
 
     while running:
         humanTurn = (gs.whiteToMove and playerOne) or (not gs.whiteToMove and playerTwo)
@@ -75,6 +86,7 @@ def main():
                         for i in range(len(validMoves)):
                             if move == validMoves[i]:
                                 gs.initMove(validMoves[i], AIThinking)
+                                print(round(ai.scoreBoard(gs), 3))
                                 moveMade = True
                                 animate = True
                                 sqSelected = ()
@@ -115,7 +127,7 @@ def main():
                     if not AIThinking and not moveUndone:
                         AIThinking = True
                         print("White", end=" ") if gs.whiteToMove else print("Black", end=" ")
-                        print("Thinking")
+                        print("Thinking:")
                         returnQueue = Queue()
                         if gs.whiteToMove:
                             moveFinderProcess = Process(target=ai.findBestMove, args=(gs, validMoves, gs.whiteToMove, returnQueue))
@@ -142,7 +154,7 @@ def main():
                     moveFinderProcess = Process(target=ai.findBestMove,
                                                 args=(gs, validMoves, gs.whiteToMove, returnQueue))
                 else:
-                    moveFinderProcess = Process(target=ai.findWorstMove,
+                    moveFinderProcess = Process(target=ai.findBestMove,
                                                 args=(gs, validMoves, gs.whiteToMove, returnQueue))
                 moveFinderProcess.start()
 
@@ -158,7 +170,7 @@ def main():
                 # Animate Move
                 animateMove(gs.moveLog[-1], screen, gs.board, clock)
 
-            validMoves = gs.getValidMoves()
+            validMoves = gs.getValidCapturesFirst()
             moveMade = False
             animate = False
 
@@ -173,7 +185,6 @@ def main():
                 drawEndgameText(screen, "Draw!")
             else:
                 drawEndgameText(screen, "StaleMate!" if gs.staleMate else "Black wins by Checkmate!" if gs.whiteToMove else "White wins by Checkmate!")
-
         clock.tick(MAX_FPS)
         pg.display.flip()
 
@@ -252,7 +263,7 @@ def drawMoveLog(screen, gs, font, moveMade):
 
 
 
-def printMoveLog(screen, gs, moveMade):
+def printMoveLog(screen, gs):
     moveLog = gs.moveLog
     moveTexts = []
     for i in range(0, len(moveLog), 2):
@@ -263,6 +274,7 @@ def printMoveLog(screen, gs, moveMade):
 
     movesPerRow = 3
     text = ""
+    print()
     for i in range(0, len(moveTexts), movesPerRow):
         text = ""
         for j in range(movesPerRow):

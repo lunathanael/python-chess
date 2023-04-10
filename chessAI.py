@@ -1,14 +1,15 @@
 import random
 import numpy as np
+from timeit import default_timer as timer
 
-centipawnValue = 160
-pieceScore = {"K": 20000, "Q": 1160, "R": 670, "N": 450, "B": 480, "p": centipawnValue}
+centipawnValue = 100
+pieceScore = {"K": 0, "Q": centipawnValue * 9.5, "R": centipawnValue * 4.5, "N": centipawnValue * 3, "B": centipawnValue * 3.0, "p": centipawnValue}
 CHECKMATE = 100000
 STALEMATE = 0
 DRAW = 0
-DEPTH = 2 # Halfmoves, recommened to be even
-ATTACK = 4 # Halfmoves, recommened to be Depth + attacks is even, captures or checks
-MAX_DEPTH = DEPTH + ATTACK
+DEPTH = 4 # Halfmoves, recommened to be even
+ATTACK = "N/A" # Halfmoves, recommened to be Depth + attacks is even, captures or checks
+MAX_DEPTH = 10
 
 PawnPhase = 0
 KnightPhase = 1
@@ -18,135 +19,142 @@ QueenPhase = 4
 TotalPhase = PawnPhase * 16 + KnightPhase * 4 + BishopPhase * 4 + RookPhase * 4 + QueenPhase * 2
 phase = TotalPhase
 bestLine = [None] * DEPTH
-capture = False
 memo = np.zeros((1,2))
 hashTable = 0
 bishopCombo = [False, False]
 bestEval = 0
+movesEvaluated = 0
 
 knightScores = [
-    [-50, -40, -30, -30, -30, -30, -40, -50],
-    [-40, -20, 0, 0, 0, 0, -20, -40],
-    [-30, 0, 10, 15, 15, 10, 0, -30],
-    [-30, 5, 15, 20, 20, 15, 5, -30],
-    [-30, 5, 15, 20, 20, 15, 5, -30],
-    [-30, 0, 10, 15, 15, 10, 0, -30],
-    [-40, -20, 0, 0, 0, 0, -20, -40],
-    [-50, -50, -30, -30, -30, -30, -50, -50]]
+    -50, -40, -30, -30, -30, -30, -40, -50,
+    -40, -20, 0, 0, 0, 0, -20, -40,
+    -30, 0, 10, 15, 15, 10, 0, -30,
+    -30, 5, 15, 20, 20, 15, 5, -30,
+    -30, 0, 15, 20, 20, 15, 0, -30,
+    -30, 5, 10, 15, 15, 10, 5, -30,
+    -40, -20, 0, 5, 5, 0, -20, -40,
+    -50, -40, -30, -30, -30, -30, -40, -50
+]
+
 
 egKnightScores = [
-    [-58, -38, -13, -28, -31, -27, -63, -99],
-    [-25, -8, -25, -2, -9, -25, -24, -52],
-    [-24, -20, 10, 9, -1, -9, -19, -41],
-    [-17, 3, 22, 22, 22, 11, 8, -18],
-    [-18, -6, 16, 25, 16, 17, 4, -18],
-    [-23, -3, -1, 15, 10, -3, -20, -22],
-    [-42, -20, -10, -5, -2, -20, -23, -44],
-    [-29, -51, -23, -15, -22, -18, -50, -64]
+    -50, -40, -30, -30, -30, -30, -40, -50,
+    -40, -20, 0, 0, 0, 0, -20, -40,
+    -30, 0, 10, 15, 15, 10, 0, -30,
+    -30, 5, 15, 20, 20, 15, 5, -30,
+    -30, 0, 15, 20, 20, 15, 0, -30,
+    -30, 5, 10, 15, 15, 10, 5, -30,
+    -40, -20, 0, 5, 5, 0, -20, -40,
+    -50, -40, -30, -30, -30, -30, -40, -50
 ]
 
 kingScores = [
-    [-30, -40, -40, -50, -50, -40, -40, -30, ],
-    [-30, -40, -40, -50, -50, -40, -40, -30],
-    [-30, -40, -40, -50, -50, -40, -40, -30],
-    [-30, -40, -40, -50, -50, -40, -40, -30],
-    [-20, -30, -30, -40, -40, -30, -30, -20],
-    [-10, -20, -20, -20, -20, -20, -20, -10],
-    [20, 20, 0, 0, 0, 0, 20, 20],
-    [20, 30, 10, 0, 0, 10, 30, 20]]
+    20, 30, 10, 0, 0, 10, 30, 20,
+    20, 20, 0, 0, 0, 0, 20, 20,
+    -10, -20, -20, -20, -20, -20, -20, -10,
+    20, -30, -30, -40, -40, -30, -30, -20,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30
+]
 
 egKingScores = [
-    [-74, -35, -18, -18, -11, 15, 4, -17],
-    [-12, 17, 14, 17, 17, 38, 23, 11],
-    [10, 17, 23, 15, 20, 45, 44, 13],
-    [-8, 22, 24, 27, 26, 33, 26, 3],
-    [-18, -4, 21, 24, 27, 23, 9, -11],
-    [-19, -3, 11, 21, 23, 16, 7, -9],
-    [-27, -11, 4, 13, 14, 4, -5, -17],
-    [-53, -34, -21, -11, -28, -14, -24, -43]]
+    50, -30, -30, -30, -30, -30, -30, -50,
+    -30, -30,  0,  0,  0,  0, -30, -30,
+    -30, -10, 20, 30, 30, 20, -10, -30,
+    -30, -10, 30, 40, 40, 30, -10, -30,
+    -30, -10, 30, 40, 40, 30, -10, -30,
+    -30, -10, 20, 30, 30, 20, -10, -30,
+    -30, -20, -10,  0,  0, -10, -20, -30,
+    -50, -40, -30, -20, -20, -30, -40, -50
+]
 
 rookScores = [
-    [0, 0, 0, 0, 0, 0, 0, 0],
-    [5, 10, 10, 10, 10, 10, 10, 5],
-    [-5, 0, 0, 0, 0, 0, 0, -5],
-    [-5, 0, 0, 0, 0, 0, 0, -5],
-    [-5, 0, 0, 0, 0, 0, 0, -5],
-    [-5, 0, 0, 0, 0, 0, 0, -5],
-    [-5, 2, 6, 6, 6, 6, 2, -5],
-    [1, 0, 5, 5, 5, 5, 0, 1]]
+    0, 0, 0, 5, 5, 0, 0, 0,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    5, 10, 10, 10, 10, 10, 10, 5,
+    0, 0, 0, 0, 0, 0, 0, 0
+]
 
 egRookScores = [
-    [13, 10, 18, 15, 12, 12, 8, 5],
-    [11, 13, 13, 11, -3, 3, 8, 3],
-    [7, 7, 7, 5, 4, -3, -5, -3],
-    [4, 3, 13, 1, 2, 1, -1, 2],
-    [3, 5, 8, 4, -5, -6, -8, -11],
-    [-4, 0, -5, -1, -7, -12, -8, -16],
-    [-6, -6, 0, 2, -9, -9, -11, -3],
-    [-9, 2, 3, -1, -5, -13, 4, -20]
+    0, 0, 0, 5, 5, 0, 0, 0,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    5, 10, 10, 10, 10, 10, 10, 5,
+    0, 0, 0, 0, 0, 0, 0, 0
 ]
 
 pawnScores = [
-    [0, 0, 0, 0, 0, 0, 0, 0],
-    [50, 50, 50, 50, 50, 50, 50, 50],
-    [10, 10, 20, 30, 30, 20, 10, 10],
-    [5, 5, 12, 25, 25, 12, 5, 5],
-    [0, 4, 32, 34, 35, 32, 4, 0],
-    [5, 17, 20, 20, 20, 20, 17, 5],
-    [-5, -6, 0, -40, -40, 0, -6, -5],
-    [0, 0, 0, 0, 0, 0, 0, 0]]
+    0,  0,  0,  0,  0,  0,  0,  0,
+    5, 10, -5, -60, -65, -5, 10,  5,
+    5, -5, -10,  0,  0, -10, -5,  5,
+    0,  0,  0, 20, 20,  0,  0,  0,
+    5,  5, 10, 25, 25, 10,  5,  5,
+    10, 10, 20, 30, 30, 20, 10, 10,
+    50, 50, 50, 50, 50, 50, 50, 50,
+    0, 0, 0, 0, 0, 0, 0, 0
+]
 
 egPawnScores = [
-    [0, 0, 0, 0, 0, 0, 0, 0],
-    [178, 173, 158, 134, 147, 132, 165, 187],
-    [94, 100, 85, 67, 56, 53, 82, 84],
-    [32, 24, 13, 5, -2, 4, 17, 17],
-    [13, 9, -3, -7, -7, -8, 3, -1],
-    [4, 7, -6, 1, 0, -5, -1, -8],
-    [13, 8, 8, 10, 13, 0, 2, -7],
-    [0, 0, 0, 0, 0, 0, 0, 0]
+    0,  0,  0,  0,  0,  0,  0,  0,
+    5, 10, 10, -20, -20, 10, 10,  5,
+    5, -5, -10,  0,  0, -10, -5,  5,
+    0,  0,  0, 20, 20,  0,  0,  0,
+    5,  5, 10, 25, 25, 10,  5,  5,
+    10, 10, 20, 30, 30, 20, 10, 10,
+    50, 50, 50, 50, 50, 50, 50, 50,
+    0, 0, 0, 0, 0, 0, 0, 0
 ]
 
 bishopScores = [
-    [-20, -10, -10, -10, -10, -10, -10, -20],
-    [-10, 0, 0, 0, 0, 0, 0, -10],
-    [-10, 0, 5, 10, 10, 5, 0, -10],
-    [-10, 5, 5, 10, 10, 5, 5, -10],
-    [-10, 0, 10, 10, 10, 10, 0, -10],
-    [-10, 10, 10, 10, 10, 10, 10, -10],
-    [-10, 11, 0, 0, 0, 0, 11, -10],
-    [-10, -10, -20, -10, -10, -20, -10, -10]]
-
-egBishopScores = [
-    [-14, -21, -11, -8, -7, -9, -17, -24],
-    [-8, -4, 7, -12, -3, -13, -4, -14],
-    [2, -8, 0, -1, -2, 6, 0, 4],
-    [-3, 9, 12, 9, 14, 10, 3, 2],
-    [-6, 3, 13, 19, 7, 10, -3, -9],
-    [-12, -3, 8, 10, 13, 3, -7, -15],
-    [-14, -18, -7, -1, 4, -9, -15, -27],
-    [-23, -9, -23, -5, -9, -16, -5, -17]
+    -20, -10, -10, -10, -10, -10, -10, -20,
+    -10, 5, 0, 0, 0, 0, 5, -10,
+    -10, 10, 10, 10, 10, 10, 10, -10,
+    -10, 0, 10, 10, 10, 10, 0, -10,
+    -10, 5, 5, 10, 10, 5, 5, -10,
+    -10, 0, 5, 10, 10, 5, 0, -10,
+    -10, 0, 0, 0, 0, 0, 0, -10,
+    -20, -10, -10, -10, -10, -10, -10, -20
 ]
 
+egBishopScores = [
+    -20, -10, -10, -10, -10, -10, -10, -20,
+    -10, 5, 0, 0, 0, 0, 5, -10,
+    -10, 10, 10, 10, 10, 10, 10, -10,
+    -10, 0, 10, 10, 10, 10, 0, -10,
+    -10, 5, 5, 10, 10, 5, 5, -10,
+    -10, 0, 5, 10, 10, 5, 0, -10,
+    -10, 0, 0, 0, 0, 0, 0, -10,
+    -20, -10, -10, -10, -10, -10, -10, -20]
+
 queenScores = [
-    [-20, -10, -10, -5, -5, -10, -10, -20],
-    [-10, 0, 0, 0, 0, 0, 0, -10],
-    [-10, 0, 5, 5, 5, 5, 0, -10],
-    [-5, 0, 5, 5, 5, 5, 0, -5],
-    [0, 0, 5, 5, 5, 5, 0, -5],
-    [-10, 5, 5, 5, 5, 5, 0, -10],
-    [-10, 0, 5, 0, 0, 0, 0, -10],
-    [-20, -10, -5, -5, -5, -10, -10, -20]]
+    -20, -10, -10, -5, -5, -10, -10, -20,
+    -10, 0, 0, 0, 0, 0, 0, -10,
+    -10, 0, 5, 5, 5, 5, 0, -10,
+    -5, 0, 5, 5, 5, 5, 0, -5,
+    0, 0, 5, 5, 5, 5, 0, -5,
+    -10, 5, 5, 5, 5, 5, 0, -10,
+    -10, 0, 5, 0, 0, 0, 0, -10,
+    -20, -10, -10, -5, -5, -10, -10, -20
+]
 
 egQueenScores = [
-    [-9, 22, 22, 27, 27, 19, 10, 20],
-    [-17, 20, 32, 41, 58, 25, 30, 0],
-    [-20, 6, 9, 49, 47, 35, 19, 9],
-    [3, 22, 24, 45, 57, 40, 57, 36],
-    [-18, 28, 19, 47, 31, 34, 39, 23],
-    [-16, -27, 15, 6, 9, 17, 10, 5],
-    [-22, -23, -30, -16, -16, -23, -36, -32],
-    [-33, -28, -22, -43, -5, -32, -20, -41]
+    -20, -10, -10, -5, -5, -10, -10, -20,
+    -10, 0, 0, 0, 0, 0, 0, -10,
+    -10, 0, 5, 5, 5, 5, 0, -10,
+    -5, 0, 5, 5, 5, 5, 0, -5,
+    0, 0, 5, 5, 5, 5, 0, -5,
+    -10, 5, 5, 5, 5, 5, 0, -10,
+    -10, 0, 5, 0, 0, 0, 0, -10,
+    -20, -10, -10, -5, -5, -10, -10, -20
 ]
 
 piecePositionScores = {"N": knightScores, "K": kingScores, "B": bishopScores, "p": pawnScores, "R": rookScores,
@@ -156,14 +164,25 @@ egPiecePositionScores = {"N": egKnightScores, "K": egKingScores, "B": egBishopSc
 
 
 def findBestMove(gs, validMoves, turn, returnQueue):
-    global nextMove, counter, favLine, capture, bestEval
+    global nextMove, counter, favLine, capture, bestEval, movesEvaluated
     counter = 0
     nextMove = None
-    random.shuffle(validMoves)
-    bestEval = findMoveNegaMaxAlphaBeta(gs, validMoves, DEPTH, -CHECKMATE, CHECKMATE, 1 if gs.whiteToMove else -1)
+    #sstart = timer()
+    #gs.getValidMoves()
+    #endd = timer()
+    #print(endd-sstart)
+    movesEvaluated = 0
+    start = timer()
+    #bestEval = findMoveNegaMaxAlphaBeta(gs, validMoves, DEPTH, -CHECKMATE, CHECKMATE, 1 if gs.whiteToMove else -1)
+    bestEval = findMoveMinMax(gs, validMoves, 0, gs.whiteToMove, -CHECKMATE, CHECKMATE)
     # findGreedyMove(gs, validMoves, DEPTH, gs.whiteToMove)
+    end = timer()
+    sec = end - start
+    if nextMove == None:
+        nextMove = findRandomMove(validMoves)
+        print("Gave Up")
     gs.initMove(nextMove, False, True)
-    printEval(nextMove, bestEval, turn)
+    printEval(nextMove, bestEval, turn, sec)
     returnQueue.put(nextMove)
 
 def findWorstMove(gs, validMoves, turn, returnQueue):
@@ -226,8 +245,6 @@ def findGreedyMove(gs, validMoves):  # Find best move based off material
 
     return bestPlayerMove
 
-
-# Helper method to first recursive call.
 def findGreedyMoveMinMax(gs, validMoves):
     global nextMove
     nextMove = None
@@ -235,35 +252,113 @@ def findGreedyMoveMinMax(gs, validMoves):
     return nextMove
 
 
-def findMoveMinMax(gs, validMoves, depth, whiteToMove):
-    global nextMove
+def findMoveMinMax(gs, validMoves, depth, whiteToMove, alpha, beta, capture=False):
+    global nextMove, counter, movesEvaluated
     # Check if terminal move
-    if depth == 0:
-        return scoreMaterial(gs.board)
+    if (depth >= DEPTH and not capture) or (depth >= MAX_DEPTH):
+        return scoreBoard(gs)
+    if gs.draw:
+        return DRAW
 
     if whiteToMove:
         maxScore = -CHECKMATE
         for move in validMoves:
+            counter += 1
+            if depth == 0:
+                movesEvaluated += 1
             gs.initMove(move, True)
-            nextMoves = gs.getValidMoves()
-            score = findMoveMinMax(gs, nextMoves, depth - 1, False)
+            attack = move.isCapture
+            nextMoves = gs.getValidCapturesFirst()
+            score = findMoveMinMax(gs, nextMoves, depth + 1, False, alpha, beta, attack)
             if score > maxScore:
                 maxScore = score
-                if depth == DEPTH:
+                if depth == 0:
                     nextMove = move
             gs.undoMove()
+            alpha = max(alpha, maxScore)
+            if depth == 0:
+                print(end="\r")
+                print("Current Engine move:", nextMove, ", eval:", round(maxScore, 3), ", Moves evaluated:", movesEvaluated, "/", len(validMoves),
+                      ", Nodes Traversed:", counter, end="")
+            if beta <= alpha:
+                break
         return maxScore
     else:
         minScore = CHECKMATE
         for move in validMoves:
+            counter += 1
+            if depth == 0:
+                movesEvaluated += 1
             gs.initMove(move, True)
-            nextMoves = gs.getValidMoves()
-            score = findMoveMinMax(gs, nextMoves, depth - 1, True)
+            attack = move.isCapture
+            nextMoves = gs.getValidCapturesFirst()
+            score = findMoveMinMax(gs, nextMoves, depth + 1, True, alpha, beta, attack)
             if score < minScore:
                 minScore = score
-                if depth == DEPTH:
+                if depth == 0:
                     nextMove = move
             gs.undoMove()
+            beta = min(beta, minScore)
+            if depth == 0:
+                print(end="\r")
+                print("Current Engine move:", nextMove, ", Eval:", round(minScore, 3), ", Moves evaluated:", movesEvaluated, "/", len(validMoves),
+                      ", Nodes Traversed:", counter, end="")
+            if beta <= alpha:
+                break
+        return minScore
+
+
+def findMoveLeastMove(gs, validMoves, depth, whiteToMove, alpha, beta, capture=False):
+    global nextMove, counter, movesEvaluated
+    # Check if terminal move
+    if (depth >= DEPTH):
+        return len(validMoves)
+
+    if not whiteToMove:
+        maxScore = 0
+        for move in validMoves:
+            counter += 1
+            if depth == 0:
+                movesEvaluated += 1
+            gs.initMove(move, True)
+            attack = move.isCapture
+            nextMoves = gs.getValidCapturesFirst()
+            score = findMoveMinMax(gs, nextMoves, depth + 1, False, alpha, beta, attack)
+            if score > maxScore:
+                maxScore = score
+                if depth == 0:
+                    nextMove = move
+            gs.undoMove()
+            alpha = max(alpha, maxScore)
+            if depth == 0:
+                print(end="\r")
+                print("Current Engine move:", nextMove, ", eval:", round(maxScore, 3), ", Moves evaluated:", movesEvaluated, "/", len(validMoves),
+                      ", Nodes Traversed:", counter, end="")
+            if beta <= alpha:
+                break
+        return maxScore
+    else:
+        minScore = 1000
+        for move in validMoves:
+            counter += 1
+            if depth == 0:
+                movesEvaluated += 1
+            gs.initMove(move, True)
+            attack = move.isCapture
+            nextMoves = gs.getValidCapturesFirst()
+            score = findMoveMinMax(gs, nextMoves, depth + 1, True, alpha, beta, attack)
+            if score < minScore:
+                minScore = score
+                if depth == 0:
+                    nextMove = move
+            gs.undoMove()
+            beta = min(beta, minScore)
+            if depth == 0:
+                print(end="\r")
+                print("Current Engine move:", nextMove, ", Eval:", round(minScore, 3), ", Moves evaluated:", movesEvaluated, "/", len(validMoves),
+                      ", Nodes Traversed:", counter, end="")
+            if beta <= alpha:
+                break
         return minScore
 
 
@@ -284,7 +379,6 @@ def findMoveNegaMax(gs, validMoves, depth, turnMultiplier):
                 nextMove = move
         gs.undoMove()
     return maxScore
-
 
 def findMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier, attack=False): # Generating nonvalid moves
     global nextMove, counter, favLine, bestEval
@@ -327,14 +421,13 @@ def findMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier,
             break
     return maxScore
 
-
 def findWorstMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier, attack=False): # Generating nonvalid moves
     global nextMove, counter, favLine, bestEval
     # Move Ordering - Implement later
     maxScore = CHECKMATE + 1
     counter += 1
 
-    if (depth <= 0 and not attack) or (depth < -ATTACK):
+    if (depth <= 0 and not attack) or (depth < -MAX_DEPTH):
 
         """        hashOf = hash(getFen(gs.board, gs.enpassantPossible, gs.whiteToMove, gs.currentCastlingRights))
         indexx = ind(memo, hashOf)
@@ -369,6 +462,10 @@ def findWorstMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultip
             break
     return maxScore
 
+ranksToRows = {"1": 7, "2": 6, "3": 5, "4": 4, "5": 3, "6": 2, "7": 1, "8": 0}
+rowsToRanks = {v: k for k, v in ranksToRows.items()}
+filesToCols = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5, "g": 6, "h": 7}
+colsToFiles = {v: k for k, v in filesToCols.items()}
 
 def getFen(board, enp, turn, castle):
     spaces = 0
@@ -411,15 +508,8 @@ def getFen(board, enp, turn, castle):
         FEN += " " + getRankFile(list(enp)[0], list(enp)[1])
     return FEN
 
-ranksToRows = {"1": 7, "2": 6, "3": 5, "4": 4, "5": 3, "6": 2, "7": 1, "8": 0}
-rowsToRanks = {v: k for k, v in ranksToRows.items()}
-filesToCols = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5, "g": 6, "h": 7}
-colsToFiles = {v: k for k, v in filesToCols.items()}
-
-
 def getRankFile(r, c):
     return colsToFiles[c] + rowsToRanks[r]
-
 
 def ind(array, item):
     for idx, val in np.ndenumerate(array):
@@ -460,17 +550,16 @@ def gamePhase(board):
 
     return phase
 
-
 # Positive score is good for white
 def scoreBoard(gs):
     if gs.checkMate:
         if gs.whiteToMove:
-            return CHECKMATE  # Black Wins
+            return -CHECKMATE  # Black Wins
         else:
-            return -CHECKMATE  # White wins
+            return CHECKMATE  # White wins
     elif gs.staleMate:
         return STALEMATE
-    elif gs.draw:
+    elif gs.draw: # ??
         return DRAW
 
     score = 0
@@ -481,22 +570,24 @@ def scoreBoard(gs):
             if square != "--":  # Score Positionally
                 piecePositionScore = 0
                 if square[0] == "w":
-                    index = row
-                else:
                     index = 7 - row
-                piecePositionScore = ((piecePositionScores[square[1]][index][col] * (256 - phase)) + (egPiecePositionScores[square[1]][index][col] * phase)) / 256
+                else:
+                    index = row
+                pos = col + index * 8
+                piecePositionScore = ((piecePositionScores[square[1]][pos] * (256 - phase)) + (egPiecePositionScores[square[1]][pos] * phase)) / 256
             if square[0] == "w":
-                score += (pieceScore[square[1]] + piecePositionScore * 0.05)
+                score += (pieceScore[square[1]] + piecePositionScore*0.5)
             if square[0] == "b":
-                score -= (pieceScore[square[1]] + piecePositionScore * 0.05)
+                score -= (pieceScore[square[1]] + piecePositionScore*0.5)
+    phaseConst = centipawnValue * (256 - phase) / 256
     if gs.castled[0]:
-        score += 0.9 * centipawnValue
+        score += 0.9 * phaseConst
     elif not gs.currentCastlingRights.wqs and not gs.currentCastlingRights.bks:
-        score -= 1 * centipawnValue
+        score -= 1 * phaseConst
     if gs.castled[1]:
-        score -= 0.9 * centipawnValue
+        score -= 0.9 * phaseConst
     elif not gs.currentCastlingRights.bqs and not gs.currentCastlingRights.bks:
-        score += 1.2 * centipawnValue
+        score += 1 * phaseConst
 
 
     # Bishop combo 700
@@ -504,11 +595,10 @@ def scoreBoard(gs):
         score += 0.7 * centipawnValue
     if bishopCombo[1]:
         score -= 0.7 * centipawnValue
-    return score
+    return score / centipawnValue
 
 def winningPercentage(pawnAdvantage):
     return 1 / (1 + 10 ** (-pawnAdvantage / 4))
-
 
 def scoreMaterial(board):  # Calculate material
     score = 0
@@ -521,13 +611,11 @@ def scoreMaterial(board):  # Calculate material
 
     return score
 
-
-def printEval(move, score, turn):
+def printEval(move, score, turn, sec):
     mult = 1 if turn else -1
-    winChance = winningPercentage(score / centipawnValue)
-    print("Engine Move:", move, ", Win estimate:", str(round(winChance * 100, 2)), "%, ", "Evaluation:",
-          str(round(mult * score / 100, 2)), end=" , Line: ")
-    for i in range(0, len(bestLine)):
-        print(str(bestLine[i]), end=" ")
-    print("Nodes: ", counter)
-    #print(hashTable)
+    winChance = winningPercentage(mult * score)
+    print()
+    print("Engine Move:", move, ", Win estimate:", str(round(winChance * 100, 2)), "%, ", "eval:",
+          str(round(score, 3)), ", Time:", round(sec, 4), ", nps:", round(counter / sec, 1), "\n")
+    #for i in range(0, len(bestLine)):
+        #print(str(bestLine[i]), end=" ")

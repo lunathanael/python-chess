@@ -110,7 +110,6 @@ class GameState:
                     elif self.boardLog[list(indexx)[0], 1] == 2:
                         self.boardLog[list(indexx)[0], 1] -= 1
                     elif self.boardLog[list(indexx)[0], 1] == 3:
-                        self.draw = False
                         self.boardLog[list(indexx)[0], 1] -= 1
 
             move = self.moveLog.pop()
@@ -279,6 +278,236 @@ class GameState:
 
         return False
 
+    def getValidCapturesFirst(self):
+        self.trying = True
+        moves = self.getCapturesFirst()
+        opp = "b" if self.whiteToMove else "w"
+
+        if self.whiteToMove:
+            self.getCastleMoves(self.whiteKingLocation[0], self.whiteKingLocation[1], moves, opp)
+        else:
+            self.getCastleMoves(self.blackKingLocation[0], self.blackKingLocation[1], moves, opp)
+        for i in range(len(moves) - 1, -1, -1):
+            self.initMove(moves[i])
+            if self.inCheck(opp):
+                moves.remove(moves[i])
+            self.undoMove()
+
+        if len(moves) == 0:
+            if self.inCheck(opp):
+                self.check = True
+                self.checkMate = True
+            else:
+                self.check = False
+                self.staleMate = True
+
+        else:
+            self.checkMate = False
+            self.staleMate = False
+
+        self.trying = False
+
+        return moves
+
+    def getCapturesFirst(self):
+        moves = []
+        for r in range(len(self.board)):
+            for c in range(len(self.board[r])):
+                turn = self.board[r][c][0]
+                if (turn == "w" and self.whiteToMove) or (turn == "b" and not self.whiteToMove):
+                    piece = self.board[r][c][1]
+                    targetTurn = "b" if self.whiteToMove else "w"
+                    # Captures and promotions first
+                    if self.whiteToMove:
+                        moveAmount = -1
+                        startRow = 6
+                        backRow = 0
+                    else:
+                        moveAmount = 1
+                        startRow = 1
+                        backRow = 7
+                    match piece:
+                        case "p":
+                            if c - 1 >= 0:
+                                if self.board[r + moveAmount][c - 1][0] == targetTurn:
+                                    if r == backRow:
+                                        moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board, promotionPiece="Q"))
+                                        moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board, promotionPiece="N"))
+                                        moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board, promotionPiece="B"))
+                                        moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board, promotionPiece="R"))
+                                    else:
+                                        moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board))
+                                elif (r + moveAmount, c - 1) == self.enpassantPossible:
+                                    moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board, isEnpassantMove=True))
+                            if c + 1 <= 7:
+                                if self.board[r + moveAmount][c + 1][0] == targetTurn:
+                                    if r == backRow:
+                                        moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board, "Q"))
+                                        moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board, "N"))
+                                        moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board, "B"))
+                                        moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board, "R"))
+                                    else:
+                                        moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board))
+                                elif (r + moveAmount, c + 1) == self.enpassantPossible:
+                                    moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board, isEnpassantMove=True))
+
+                            if self.board[r + moveAmount][c] == "--" and r == backRow:
+                                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="Q"))
+                                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="N"))
+                                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="B"))
+                                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="R"))
+                        case "B":
+                            directions = ((-1, -1), (1, 1), (1, -1), (-1, 1))  # 4 Directions
+                            for d in directions:
+                                for i in range(1, 8):  # Maximum of 7 squares
+                                    endRow = r + d[0] * i
+                                    endCol = c + d[1] * i
+                                    if 0 <= endRow < 8 and 0 <= endCol < 8:
+                                        endPiece = self.board[endRow][endCol]
+                                        if endPiece[0] == targetTurn:  # Valid target
+                                            moves.append(makeMove((r, c), (endRow, endCol), self.board))
+                                            break
+                                        else:  # Same turn target
+                                            break
+                                    else:  # Move is off board
+                                        break
+                        case "N":
+                            knightMoves = ((1, 2), (2, 1), (-1, 2), (-2, 1), (1, -2), (2, -1), (-1, -2), (-2, -1))  # 4 Directions
+                            for m in knightMoves:
+                                endRow = r + m[0]
+                                endCol = c + m[1]
+                                if 0 <= endRow < 8 and 0 <= endCol < 8:
+                                    endPiece = self.board[endRow][endCol]
+                                    if endPiece[0] == targetTurn:  # Valid target
+                                        moves.append(makeMove((r, c), (endRow, endCol), self.board))
+                        case "R":
+                            directions = ((-1, 0), (1, 0), (0, -1), (0, 1))  # 4 Directions
+                            for d in directions:
+                                for i in range(1, 8):  # Maximum of 7 squares
+                                    endRow = r + d[0] * i
+                                    endCol = c + d[1] * i
+                                    if 0 <= endRow < 8 and 0 <= endCol < 8:
+                                        endPiece = self.board[endRow][endCol]
+                                        if endPiece[0] == targetTurn:  # Valid target
+                                            moves.append(makeMove((r, c), (endRow, endCol), self.board))
+                                            break
+                                        else:  # Same turn target
+                                            break
+                                    else:  # Move is off board
+                                        break
+                        case "Q":
+                            directions = ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1), (1, -1), (-1, 1))  # 8 Directions
+                            for d in directions:
+                                for i in range(1, 8):  # Maximum of 7 squares
+                                    endRow = r + d[0] * i
+                                    endCol = c + d[1] * i
+                                    if 0 <= endRow < 8 and 0 <= endCol < 8:
+                                        endPiece = self.board[endRow][endCol]
+                                        if endPiece[0] == targetTurn:  # Valid target
+                                            moves.append(makeMove((r, c), (endRow, endCol), self.board))
+                                            break
+                                        else:  # Same turn target
+                                            break
+                                    else:  # Move is off board
+                                        break
+                        case "K":
+                            directions = ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1), (1, -1), (-1, 1))  # 8 Directions
+                            for i in range(8):
+                                endRow = r + directions[i][0]
+                                endCol = c + directions[i][1]
+                                if 0 <= endRow < 8 and 0 <= endCol < 8:
+                                    endPiece = self.board[endRow][endCol]
+                                    if endPiece[0] == targetTurn:  # Valid target
+                                        moves.append(makeMove((r, c), (endRow, endCol), self.board))
+                    # Captures over.
+        for r in range(len(self.board)):
+            for c in range(len(self.board[r])):
+                turn = self.board[r][c][0]
+                if (turn == "w" and self.whiteToMove) or (turn == "b" and not self.whiteToMove):
+                    piece = self.board[r][c][1]
+                    targetTurn = "b" if self.whiteToMove else "w"
+                    # Captures and promotions first
+                    if self.whiteToMove:
+                        moveAmount = -1
+                        startRow = 6
+                        backRow = 0
+                    else:
+                        moveAmount = 1
+                        startRow = 1
+                        backRow = 7
+                    match piece:
+                        case "p":
+                            if self.board[r + moveAmount][c] == "--":
+                                if r == startRow and self.board[r + (2 * moveAmount)][c] == "--":
+                                    moves.append(makeMove((r, c), (r + (2 * moveAmount), c), self.board))
+                                if r != backRow:
+                                    moves.append(makeMove((r, c), (r + moveAmount, c), self.board))
+                        case "B":
+                            directions = ((-1, -1), (1, 1), (1, -1), (-1, 1))  # 4 Directions
+                            for d in directions:
+                                for i in range(1, 8):  # Maximum of 7 squares
+                                    endRow = r + d[0] * i
+                                    endCol = c + d[1] * i
+                                    if 0 <= endRow < 8 and 0 <= endCol < 8:
+                                        endPiece = self.board[endRow][endCol]
+                                        if endPiece == "--":  # Valid empty space
+                                            moves.append(makeMove((r, c), (endRow, endCol), self.board))
+                                        else:  # Same turn target
+                                            break
+                                    else:  # Move is off board
+                                        break
+                        case "N":
+                            knightMoves = (
+                            (1, 2), (2, 1), (-1, 2), (-2, 1), (1, -2), (2, -1), (-1, -2), (-2, -1))  # 4 Directions
+                            for m in knightMoves:
+                                endRow = r + m[0]
+                                endCol = c + m[1]
+                                if 0 <= endRow < 8 and 0 <= endCol < 8:
+                                    endPiece = self.board[endRow][endCol]
+                                    if endPiece == "--":  # Valid target
+                                        moves.append(makeMove((r, c), (endRow, endCol), self.board))
+                        case "R":
+                            directions = ((-1, 0), (1, 0), (0, -1), (0, 1))  # 4 Directions
+                            for d in directions:
+                                for i in range(1, 8):  # Maximum of 7 squares
+                                    endRow = r + d[0] * i
+                                    endCol = c + d[1] * i
+                                    if 0 <= endRow < 8 and 0 <= endCol < 8:
+                                        endPiece = self.board[endRow][endCol]
+                                        if endPiece == "--":  # Valid target
+                                            moves.append(makeMove((r, c), (endRow, endCol), self.board))
+                                            break
+                                        else:  # Same turn target
+                                            break
+                                    else:  # Move is off board
+                                        break
+                        case "Q":
+                            directions = (
+                            (-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1), (1, -1), (-1, 1))  # 8 Directions
+                            for d in directions:
+                                for i in range(1, 8):  # Maximum of 7 squares
+                                    endRow = r + d[0] * i
+                                    endCol = c + d[1] * i
+                                    if 0 <= endRow < 8 and 0 <= endCol < 8:
+                                        endPiece = self.board[endRow][endCol]
+                                        if endPiece == "--":  # Valid empty space
+                                            moves.append(makeMove((r, c), (endRow, endCol), self.board))
+                                        else:  # Same turn target
+                                            break
+                                    else:  # Move is off board
+                                        break
+                        case "K":
+                            directions = (
+                            (-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1), (1, -1), (-1, 1))  # 8 Directions
+                            for i in range(8):
+                                endRow = r + directions[i][0]
+                                endCol = c + directions[i][1]
+                                if 0 <= endRow < 8 and 0 <= endCol < 8:
+                                    endPiece = self.board[endRow][endCol]
+                                    if endPiece == "--":  # Valid target
+                                        moves.append(makeMove((r, c), (endRow, endCol), self.board))
+        return moves
+
     def getAllPossibleMoves(self):
         moves = []
         for r in range(len(self.board)):
@@ -300,17 +529,6 @@ class GameState:
             startRow = 1
             backRow = 7
             targetColor = "w"
-
-        if self.board[r + moveAmount][c] == "--":
-            if r == startRow and self.board[r + (2 * moveAmount)][c] == "--":
-                moves.append(makeMove((r, c), (r + (2 * moveAmount), c), self.board))
-            if r == backRow:
-                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="Q"))
-                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="N"))
-                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="B"))
-                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="R"))
-            else:
-                moves.append(makeMove((r, c), (r + moveAmount, c), self.board))
         if c - 1 >= 0:
             if self.board[r + moveAmount][c - 1][0] == targetColor:
                 if r == backRow:
@@ -333,6 +551,18 @@ class GameState:
                     moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board))
             elif (r + moveAmount, c + 1) == self.enpassantPossible:
                 moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board, isEnpassantMove=True))
+
+
+        if self.board[r + moveAmount][c] == "--":
+            if r == startRow and self.board[r + (2 * moveAmount)][c] == "--":
+                moves.append(makeMove((r, c), (r + (2 * moveAmount), c), self.board))
+            if r == backRow:
+                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="Q"))
+                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="N"))
+                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="B"))
+                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="R"))
+            else:
+                moves.append(makeMove((r, c), (r + moveAmount, c), self.board))
 
     def getBishopMoves(self, r, c, moves):
         directions = ((-1, -1), (1, 1), (1, -1), (-1, 1))  # 4 Directions
@@ -366,16 +596,14 @@ class GameState:
 
     def getRookMoves(self, r, c, moves):
         directions = ((-1, 0), (1, 0), (0, -1), (0, 1))  # 4 Directions
-        targetTurn = "b" if self.whiteToMove else "w"
+        allyTurn = "w" if self.whiteToMove else "b"
         for d in directions:
             for i in range(1, 8):  # Maximum of 7 squares
                 endRow = r + d[0] * i
                 endCol = c + d[1] * i
                 if 0 <= endRow < 8 and 0 <= endCol < 8:
                     endPiece = self.board[endRow][endCol]
-                    if endPiece == "--":  # Valid empty space
-                        moves.append(makeMove((r, c), (endRow, endCol), self.board))
-                    elif endPiece[0] == targetTurn:  # Valid target
+                    if endPiece[0] != allyTurn:  # Valid target
                         moves.append(makeMove((r, c), (endRow, endCol), self.board))
                         break
                     else:  # Same turn target
