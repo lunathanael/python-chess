@@ -7,7 +7,7 @@ pieceScore = {"K": 0, "Q": centipawnValue * 9.5, "R": centipawnValue * 4.5, "N":
 CHECKMATE = 1000
 STALEMATE = 0
 DRAW = 0
-DEPTH = 2 # Halfmoves, recommened to be even
+DEPTH = 3 # Halfmoves, recommened to be even
 ATTACK = "N/A" # Halfmoves, recommened to be Depth + attacks is even, captures or checks
 MAX_DEPTH = 4
 

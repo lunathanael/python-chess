@@ -151,7 +151,7 @@ def main():
                 print("Thinking")
                 returnQueue = Queue()
                 if gs.whiteToMove:
-                    moveFinderProcess = Process(target=ai.twoStepeepeningSearch, args=(gs, validMoves, 3, 2, 4, returnQueue))
+                    moveFinderProcess = Process(target=ai.twoStepSearch, args=(gs, validMoves, 3, 2, 4, returnQueue))
                 else:
                     moveFinderProcess = Process(target=ai.findBestMove,
                                                         args=(gs, validMoves, gs.whiteToMove, returnQueue))
