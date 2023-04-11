@@ -9,7 +9,7 @@ STALEMATE = 0
 DRAW = 0
 DEPTH = 4 # Halfmoves, recommened to be even
 ATTACK = "N/A" # Halfmoves, recommened to be Depth + attacks is even, captures or checks
-MAX_DEPTH = 10
+MAX_DEPTH = 8
 
 PawnPhase = 0
 KnightPhase = 1
