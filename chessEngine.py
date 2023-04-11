@@ -367,7 +367,7 @@ class GameState:
                                         if endPiece[0] == targetTurn:  # Valid target
                                             moves.append(makeMove((r, c), (endRow, endCol), self.board))
                                             break
-                                        else:  # Same turn target
+                                        elif endPiece[0] != "-":  # Same turn target
                                             break
                                     else:  # Move is off board
                                         break
@@ -391,7 +391,7 @@ class GameState:
                                         if endPiece[0] == targetTurn:  # Valid target
                                             moves.append(makeMove((r, c), (endRow, endCol), self.board))
                                             break
-                                        else:  # Same turn target
+                                        elif endPiece != "--":  # Same turn target
                                             break
                                     else:  # Move is off board
                                         break
@@ -406,7 +406,7 @@ class GameState:
                                         if endPiece[0] == targetTurn:  # Valid target
                                             moves.append(makeMove((r, c), (endRow, endCol), self.board))
                                             break
-                                        else:  # Same turn target
+                                        elif endPiece != "--":  # Same turn target
                                             break
                                     else:  # Move is off board
                                         break
@@ -476,7 +476,6 @@ class GameState:
                                         endPiece = self.board[endRow][endCol]
                                         if endPiece == "--":  # Valid target
                                             moves.append(makeMove((r, c), (endRow, endCol), self.board))
-                                            break
                                         else:  # Same turn target
                                             break
                                     else:  # Move is off board
