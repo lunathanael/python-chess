@@ -55,7 +55,7 @@ def main():
 
 
 
-    playerOne = False # If player 1 is human, this will be True
+    playerOne = True # If player 1 is human, this will be True
     playerTwo = False # If player 2 is human, this will be True
 
 
@@ -151,10 +151,11 @@ def main():
                 print("Thinking")
                 returnQueue = Queue()
                 if gs.whiteToMove:
-                    moveFinderProcess = Process(target=ai.twoStepSearch, args=(gs, validMoves, 3, 2, 4, returnQueue))
-                else:
+                    #moveFinderProcess = Process(target=ai.twoStepSearch, args=(gs, validMoves, 3, 2, 4, returnQueue))
                     moveFinderProcess = Process(target=ai.findBestMove,
                                                         args=(gs, validMoves, gs.whiteToMove, returnQueue))
+                else:
+                    moveFinderProcess = Process(target=ai.twoStepSearch, args=(gs, validMoves, 3, 2, 4, returnQueue))
                 moveFinderProcess.start()
 
             if not moveFinderProcess.is_alive():

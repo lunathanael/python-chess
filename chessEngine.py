@@ -127,7 +127,6 @@ class GameState:
                 self.board[move.endRow][move.endCol] = "--"  # Leave landing square blank
                 self.board[move.startRow][move.endCol] = move.pieceCaptured
 
-            self.whiteToMove = not self.whiteToMove
 
             if not self.trying:
                 self.enpassantPossibleLog.pop()
@@ -147,6 +146,7 @@ class GameState:
             self.draw = False
             self.checkMate = False
             self.staleMate = False
+            self.whiteToMove = not self.whiteToMove
 
     def updateCastleRights(self, move):
         if move.pieceMoved == "wK":

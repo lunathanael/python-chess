@@ -7,7 +7,7 @@ pieceScore = {"K": 0, "Q": centipawnValue * 9.5, "R": centipawnValue * 4.5, "N":
 CHECKMATE = 1000
 STALEMATE = 0
 DRAW = 0
-DEPTH = 3 # Halfmoves, recommened to be even
+DEPTH = 3# Halfmoves, recommened to be even
 ATTACK = "N/A" # Halfmoves, recommened to be Depth + attacks is even, captures or checks
 MAX_DEPTH = 4
 
@@ -174,7 +174,8 @@ def findBestMove(gs, validMoves, turn, returnQueue):
     movesEvaluated = 0
     start = timer()
     #bestEval = findMoveNegaMaxAlphaBeta(gs, validMoves, DEPTH, -CHECKMATE, CHECKMATE, 1 if gs.whiteToMove else -1)
-    bestEval = findMoveMinMax(gs, validMoves, 0, gs.whiteToMove, -CHECKMATE, CHECKMATE)
+    #bestEval = findMoveMinMax(gs, validMoves, 0, gs.whiteToMove, -CHECKMATE, CHECKMATE)
+    bestEval = findMoveLeastMove(gs, validMoves, 0, gs.whiteToMove, -CHECKMATE, CHECKMATE)
     # findGreedyMove(gs, validMoves, DEPTH, gs.whiteToMove)
     end = timer()
     sec = end - start
@@ -202,6 +203,7 @@ def twoStepSearch(gs, validMoves, lines, initialDepth, finalDepth, returnQueue):
     initialMoves = [None] * lines
     nextMove = None
     movesEvaluated = 0
+    turn = 1 if gs.whiteToMove else -1
     start = timer()
     print("Initial Search:")
     for i in range(lines):
@@ -217,7 +219,7 @@ def twoStepSearch(gs, validMoves, lines, initialDepth, finalDepth, returnQueue):
         print(move, end=" ")
     print("\nFinal Search:")
     movesEvaluated = 0
-    bestEval = findMoveNegaMaxAlphaBeta(gs, initialMoves, finalDepth, -CHECKMATE, CHECKMATE, 1 if gs.whiteToMove else -1, finalDepth)
+    bestEval = turn * findMoveNegaMaxAlphaBeta(gs, initialMoves, finalDepth, -CHECKMATE, CHECKMATE, turn, finalDepth)
     end = timer()
     sec = end - start
     printEval(nextMove, bestEval, gs.whiteToMove, sec)
@@ -251,7 +253,7 @@ def findMoveNegaMax2(gs, validMoves, depth, turnMultiplier, root, line, alpha, b
             break
         if depth == root:
             print(end="\r")
-            print("Current Engine move:", initialMoves[line], ", Eval:", round(score, 3), ", Moves evaluated:", movesEvaluated,
+            print("Current Engine move:", initialMoves[line], ", Eval:", round(turnMultiplier * maxScore, 3), ", Moves evaluated:", movesEvaluated,
                   "/", len(validMoves),
                   ", Nodes Traversed:", counter, end="")
     return maxScore
@@ -310,6 +312,60 @@ def findGreedyMoveMinMax(gs, validMoves):
     findMoveMinMax(gs, validMoves, DEPTH, gs.whiteToMove)
     return nextMove
 
+def findMoveLeastMove(gs, validMoves, depth, whiteToLose, alpha, beta, capture=False):
+    global nextMove, counter, movesEvaluated
+    # Check if terminal move
+    if (depth >= DEPTH and not capture) or (depth >= MAX_DEPTH):
+        return scoreBoard(gs)
+    if gs.draw:
+        return DRAW
+
+    if whiteToLose:
+        maxScore = CHECKMATE
+        for move in validMoves:
+            counter += 1
+            if depth == 0:
+                movesEvaluated += 1
+            gs.initMove(move, True)
+            attack = move.isCapture
+            nextMoves = gs.getValidCapturesFirst()
+            score = findMoveMinMax(gs, nextMoves, depth + 1, True, alpha, beta, attack)
+            if score < maxScore:
+                maxScore = score
+                if depth == 0:
+                    nextMove = move
+            gs.undoMove()
+            beta = min(beta, maxScore)
+            if depth == 0:
+                print(end="\r")
+                print("Current Engine move:", nextMove, ", eval:", round(maxScore, 3), ", Moves evaluated:", movesEvaluated, "/", len(validMoves),
+                      ", Nodes Traversed:", counter, end="")
+            if beta <= alpha:
+                break
+        return maxScore
+    else:
+        minScore = -CHECKMATE
+        for move in validMoves:
+            counter += 1
+            if depth == 0:
+                movesEvaluated += 1
+            gs.initMove(move, True)
+            attack = move.isCapture
+            nextMoves = gs.getValidCapturesFirst()
+            score = findMoveMinMax(gs, nextMoves, depth + 1, False, alpha, beta, attack)
+            if score > minScore:
+                minScore = score
+                if depth == 0:
+                    nextMove = move
+            gs.undoMove()
+            beta = max(alpha, minScore)
+            if depth == 0:
+                print(end="\r")
+                print("Current Engine move:", nextMove, ", Eval:", round(minScore, 3), ", Moves evaluated:", movesEvaluated, "/", len(validMoves),
+                      ", Nodes Traversed:", counter, end="")
+            if beta <= alpha:
+                break
+        return minScore
 
 def findMoveMinMax(gs, validMoves, depth, whiteToMove, alpha, beta, capture=False):
     global nextMove, counter, movesEvaluated
@@ -367,59 +423,6 @@ def findMoveMinMax(gs, validMoves, depth, whiteToMove, alpha, beta, capture=Fals
         return minScore
 
 
-def findMoveLeastMove(gs, validMoves, depth, whiteToMove, alpha, beta, capture=False):
-    global nextMove, counter, movesEvaluated
-    # Check if terminal move
-    if (depth >= DEPTH):
-        return len(validMoves)
-
-    if not whiteToMove:
-        maxScore = 0
-        for move in validMoves:
-            counter += 1
-            if depth == 0:
-                movesEvaluated += 1
-            gs.initMove(move, True)
-            attack = move.isCapture
-            nextMoves = gs.getValidCapturesFirst()
-            score = findMoveMinMax(gs, nextMoves, depth + 1, False, alpha, beta, attack)
-            if score > maxScore:
-                maxScore = score
-                if depth == 0:
-                    nextMove = move
-            gs.undoMove()
-            alpha = max(alpha, maxScore)
-            if depth == 0:
-                print(end="\r")
-                print("Current Engine move:", nextMove, ", eval:", round(maxScore, 3), ", Moves evaluated:", movesEvaluated, "/", len(validMoves),
-                      ", Nodes Traversed:", counter, end="")
-            if beta <= alpha:
-                break
-        return maxScore
-    else:
-        minScore = 1000
-        for move in validMoves:
-            counter += 1
-            if depth == 0:
-                movesEvaluated += 1
-            gs.initMove(move, True)
-            attack = move.isCapture
-            nextMoves = gs.getValidCapturesFirst()
-            score = findMoveMinMax(gs, nextMoves, depth + 1, True, alpha, beta, attack)
-            if score < minScore:
-                minScore = score
-                if depth == 0:
-                    nextMove = move
-            gs.undoMove()
-            beta = min(beta, minScore)
-            if depth == 0:
-                print(end="\r")
-                print("Current Engine move:", nextMove, ", Eval:", round(minScore, 3), ", Moves evaluated:", movesEvaluated, "/", len(validMoves),
-                      ", Nodes Traversed:", counter, end="")
-            if beta <= alpha:
-                break
-        return minScore
-
 
 def findMoveNegaMax(gs, validMoves, depth, turnMultiplier):
     global nextMove
@@ -466,7 +469,7 @@ def findMoveNegaMaxAlphaBeta(gs, validMoves, depth, alpha, beta, turnMultiplier,
             break
         if depth == root:
             print(end="\r")
-            print("Current Engine move:", nextMove, ", Eval:", round(score, 3), ", Moves evaluated:", movesEvaluated,
+            print("Current Engine move:", nextMove, ", Eval:", round(score * turnMultiplier, 3), ", Moves evaluated:", movesEvaluated,
                   "/", len(validMoves),
                   ", Nodes Traversed:", counter, end="")
     return maxScore
