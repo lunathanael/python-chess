@@ -113,6 +113,7 @@ class GameState:
                         self.boardLog[list(indexx)[0], 1] -= 1
 
             move = self.moveLog.pop()
+            #print(str(move))
             self.board[move.startRow][move.startCol] = move.pieceMoved
             self.board[move.endRow][move.endCol] = move.pieceCaptured
 
@@ -531,35 +532,35 @@ class GameState:
         if c - 1 >= 0:
             if self.board[r + moveAmount][c - 1][0] == targetColor:
                 if r == backRow:
-                    moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board, promotionPiece="Q"))
-                    moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board, promotionPiece="N"))
-                    moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board, promotionPiece="B"))
-                    moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board, promotionPiece="R"))
+                    moves.insert(0, makeMove((r, c), (r + moveAmount, c - 1), self.board, promotionPiece="Q"))
+                    moves.insert(0, makeMove((r, c), (r + moveAmount, c - 1), self.board, promotionPiece="N"))
+                    moves.insert(0, makeMove((r, c), (r + moveAmount, c - 1), self.board, promotionPiece="B"))
+                    moves.insert(0, makeMove((r, c), (r + moveAmount, c - 1), self.board, promotionPiece="R"))
                 else:
                     moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board))
             elif (r + moveAmount, c - 1) == self.enpassantPossible:
-                moves.append(makeMove((r, c), (r + moveAmount, c - 1), self.board, isEnpassantMove=True))
+                moves.insert(0, makeMove((r, c), (r + moveAmount, c - 1), self.board, isEnpassantMove=True))
         if c + 1 <= 7:
             if self.board[r + moveAmount][c + 1][0] == targetColor:
                 if r == backRow:
-                    moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board, "Q"))
-                    moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board, "N"))
-                    moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board, "B"))
-                    moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board, "R"))
+                    moves.insert(0, makeMove((r, c), (r + moveAmount, c + 1), self.board, "Q"))
+                    moves.insert(0, makeMove((r, c), (r + moveAmount, c + 1), self.board, "N"))
+                    moves.insert(0, makeMove((r, c), (r + moveAmount, c + 1), self.board, "B"))
+                    moves.insert(0, makeMove((r, c), (r + moveAmount, c + 1), self.board, "R"))
                 else:
-                    moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board))
+                    moves.insert(0, makeMove((r, c), (r + moveAmount, c + 1), self.board))
             elif (r + moveAmount, c + 1) == self.enpassantPossible:
-                moves.append(makeMove((r, c), (r + moveAmount, c + 1), self.board, isEnpassantMove=True))
+                moves.insert(0, makeMove((r, c), (r + moveAmount, c + 1), self.board, isEnpassantMove=True))
 
 
         if self.board[r + moveAmount][c] == "--":
             if r == startRow and self.board[r + (2 * moveAmount)][c] == "--":
                 moves.append(makeMove((r, c), (r + (2 * moveAmount), c), self.board))
             if r == backRow:
-                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="Q"))
-                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="N"))
-                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="B"))
-                moves.append(makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="R"))
+                moves.insert(0, makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="Q"))
+                moves.insert(0, makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="N"))
+                moves.insert(0, makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="B"))
+                moves.insert(0, makeMove((r, c), (r + moveAmount, c), self.board, promotionPiece="R"))
             else:
                 moves.append(makeMove((r, c), (r + moveAmount, c), self.board))
 
@@ -575,7 +576,7 @@ class GameState:
                     if endPiece == "--":  # Valid empty space
                         moves.append(makeMove((r, c), (endRow, endCol), self.board))
                     elif endPiece[0] == targetTurn:  # Valid target
-                        moves.append(makeMove((r, c), (endRow, endCol), self.board))
+                        moves.insert(0, makeMove((r, c), (endRow, endCol), self.board))
                         break
                     else:  # Same turn target
                         break
@@ -591,7 +592,10 @@ class GameState:
             if 0 <= endRow < 8 and 0 <= endCol < 8:
                 endPiece = self.board[endRow][endCol]
                 if endPiece[0] != allyTurn:  # Valid target
-                    moves.append(makeMove((r, c), (endRow, endCol), self.board))
+                    if endPiece == "--":
+                        moves.append(makeMove((r, c), (endRow, endCol), self.board))
+                    else:
+                        moves.insert(0, makeMove((r, c), (endRow, endCol), self.board))
 
     def getRookMoves(self, r, c, moves):
         directions = ((-1, 0), (1, 0), (0, -1), (0, 1))  # 4 Directions
@@ -603,8 +607,11 @@ class GameState:
                 if 0 <= endRow < 8 and 0 <= endCol < 8:
                     endPiece = self.board[endRow][endCol]
                     if endPiece[0] != allyTurn:  # Valid target
-                        moves.append(makeMove((r, c), (endRow, endCol), self.board))
-                        break
+                        if endPiece == "--":
+                            moves.append(makeMove((r, c), (endRow, endCol), self.board))
+                        else:
+                            moves.insert(0, makeMove((r, c), (endRow, endCol), self.board))
+                            break
                     else:  # Same turn target
                         break
                 else:  # Move is off board
@@ -622,7 +629,7 @@ class GameState:
                     if endPiece == "--":  # Valid empty space
                         moves.append(makeMove((r, c), (endRow, endCol), self.board))
                     elif endPiece[0] == targetTurn:  # Valid target
-                        moves.append(makeMove((r, c), (endRow, endCol), self.board))
+                        moves.insert(0, makeMove((r, c), (endRow, endCol), self.board))
                         break
                     else:  # Same turn target
                         break
@@ -637,8 +644,10 @@ class GameState:
             endCol = c + directions[i][1]
             if 0 <= endRow < 8 and 0 <= endCol < 8:
                 endPiece = self.board[endRow][endCol]
-                if endPiece[0] != allyTurn:  # Valid target
+                if endPiece == "--":  # Valid empty space
                     moves.append(makeMove((r, c), (endRow, endCol), self.board))
+                elif endPiece[0] != allyTurn:  # Valid target
+                    moves.insert(0, makeMove((r, c), (endRow, endCol), self.board))
 
     # Get all valid castle moves for the king at (r, c) and add to list of moves
     def getCastleMoves(self, r, c, moves, allyTurn):
@@ -659,12 +668,12 @@ class GameState:
     def getKingsideCastleMoves(self, r, c, moves, allyTurn):
         if self.board[r][c + 1] == "--" and self.board[r][c + 2] == "--":
             if (not self.isUnderAttack(allyTurn, r, c + 1)) and (not self.isUnderAttack(allyTurn, r, c + 2)):
-                moves.append(makeMove((r, c), (r, c + 2), self.board, isCastleMove=True))
+                moves.insert(0, makeMove((r, c), (r, c + 2), self.board, isCastleMove=True))
 
     def getQueensideCastleMoves(self, r, c, moves, allyTurn):
         if self.board[r][c - 1] == "--" and self.board[r][c - 2] == "--" and self.board[r][c - 3] == "--":
             if not self.isUnderAttack(allyTurn, r, c - 1) and not self.isUnderAttack(allyTurn, r, c - 2):
-                moves.append(makeMove((r, c), (r, c - 2), self.board, isCastleMove=True))
+                moves.insert(0, makeMove((r, c), (r, c - 2), self.board, isCastleMove=True))
 
 
 class CastleRights():

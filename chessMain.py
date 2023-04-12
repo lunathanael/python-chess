@@ -86,7 +86,6 @@ def main():
                         for i in range(len(validMoves)):
                             if move == validMoves[i]:
                                 gs.initMove(validMoves[i], AIThinking)
-                                print(round(ai.scoreBoard(gs), 3))
                                 moveMade = True
                                 animate = True
                                 sqSelected = ()
@@ -98,6 +97,7 @@ def main():
             # Key Handler
             elif e.type == pg.KEYDOWN:
                 if e.key == pg.K_l:
+                    #gs.getValidCapturesFirst() WHY?!?!??!
                     printMoveLog(screen, gs)
 
                 if e.key == pg.K_z:
