@@ -127,7 +127,6 @@ class GameState:
                 self.board[move.endRow][move.endCol] = "--"  # Leave landing square blank
                 self.board[move.startRow][move.endCol] = move.pieceCaptured
 
-            self.whiteToMove = not self.whiteToMove
 
             if not self.trying:
                 self.enpassantPossibleLog.pop()
@@ -147,6 +146,7 @@ class GameState:
             self.draw = False
             self.checkMate = False
             self.staleMate = False
+            self.whiteToMove = not self.whiteToMove
 
     def updateCastleRights(self, move):
         if move.pieceMoved == "wK":
@@ -367,7 +367,7 @@ class GameState:
                                         if endPiece[0] == targetTurn:  # Valid target
                                             moves.append(makeMove((r, c), (endRow, endCol), self.board))
                                             break
-                                        else:  # Same turn target
+                                        elif endPiece[0] != "-":  # Same turn target
                                             break
                                     else:  # Move is off board
                                         break
@@ -391,7 +391,7 @@ class GameState:
                                         if endPiece[0] == targetTurn:  # Valid target
                                             moves.append(makeMove((r, c), (endRow, endCol), self.board))
                                             break
-                                        else:  # Same turn target
+                                        elif endPiece != "--":  # Same turn target
                                             break
                                     else:  # Move is off board
                                         break
@@ -406,7 +406,7 @@ class GameState:
                                         if endPiece[0] == targetTurn:  # Valid target
                                             moves.append(makeMove((r, c), (endRow, endCol), self.board))
                                             break
-                                        else:  # Same turn target
+                                        elif endPiece != "--":  # Same turn target
                                             break
                                     else:  # Move is off board
                                         break
@@ -476,7 +476,6 @@ class GameState:
                                         endPiece = self.board[endRow][endCol]
                                         if endPiece == "--":  # Valid target
                                             moves.append(makeMove((r, c), (endRow, endCol), self.board))
-                                            break
                                         else:  # Same turn target
                                             break
                                     else:  # Move is off board
